@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tera — Investing basics, in RWF terms{% endblock %}
+{% block content %}
+<section class="bg-navy-900 text-white">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 grid sm:grid-cols-2 gap-10 items-center">
+    <div>
+      <h1 class="text-3xl sm:text-4xl font-bold leading-tight">
+        Investing in Rwanda isn't the "someday" thing you think it is.
+      </h1>
+      <p class="mt-4 text-navy-100 text-lg">
+        Most investing content online assumes you're in New York or London. Tera teaches the basics in RWF — real local thresholds, real mobile-money habits — then points you to the licensed institutions to actually start.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-gold-400 text-navy-900 font-semibold px-5 py-3 hover:bg-gold-300">Start learning</a>
+        <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-white/10 px-5 py-3 font-medium hover:bg-white/20">Try the calculator</a>
+      </div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-6">
+      <p class="text-sm uppercase tracking-wide text-gold-300 font-semibold">Did you know?</p>
+      <p class="mt-2 text-lg">You can start investing in Rwanda's RNIT Iterambere Fund with as little as <span class="font-bold text-gold-300">RWF 2,000</span>.</p>
+      <p class="mt-4 text-sm text-navy-100">Most "how to invest" guides never mention that — because they weren't written for Rwanda.</p>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-14">
+  <div class="grid sm:grid-cols-3 gap-6">
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">1</div>
+      <h3 class="mt-3 font-semibold">Learn the basics</h3>
+      <p class="mt-1 text-sm text-slate-600">{{ lesson_count }} short lesson{{ 's' if lesson_count != 1 else '' }}, written for Rwanda — RWF amounts, mobile money, local instruments.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">2</div>
+      <h3 class="mt-3 font-semibold">Test yourself</h3>
+      <p class="mt-1 text-sm text-slate-600">A short quiz after each lesson, with your progress tracked on your dashboard.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">3</div>
+      <h3 class="mt-3 font-semibold">Go invest for real</h3>
+      <p class="mt-1 text-sm text-slate-600">We hand you off to the actual licensed regulator, exchange, and brokers — we never hold your money.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}

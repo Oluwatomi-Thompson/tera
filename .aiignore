@@ -1,0 +1,6 @@
+migrations/
+node_modules/
+.venv/
+venv/
+*.db
+app/static/css/output.css

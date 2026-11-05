@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Your dashboard — Tera{% endblock %}
+{% block content %}
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Welcome back, {{ current_user.email.split('@')[0] }}</h1>
+
+  <div class="mt-6 rounded-lg border border-slate-200 p-5 bg-white">
+    <div class="flex items-center justify-between mb-2">
+      <p class="font-medium text-slate-700">Overall progress</p>
+      <p class="text-sm text-slate-500">{{ progress.completed }} / {{ progress.total }} lessons</p>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-3">
+      <div class="bg-navy-700 h-3 rounded-full transition-all" style="width: {{ progress.percent }}%"></div>
+    </div>
+    <p class="mt-2 text-sm text-slate-500">{{ progress.percent }}% complete</p>
+  </div>
+
+  <h2 class="mt-10 text-lg font-semibold">Lessons</h2>
+  <div class="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set p = progress_by_lesson.get(lesson.id) %}
+      <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
+        <div>
+          <p class="font-medium">{{ lesson.title }}</p>
+          {% if p and p.completed %}
+            <p class="text-sm text-green-700">Completed — scored {{ p.quiz_score_pct }}%</p>
+          {% else %}
+            <p class="text-sm text-slate-500">Not started yet</p>
+          {% endif %}
+        </div>
+        {% if p and p.completed %}
+          <span class="text-green-600 text-xl" aria-hidden="true">✓</span>
+        {% else %}
+          <span class="text-slate-300 text-xl" aria-hidden="true">→</span>
+        {% endif %}
+      </a>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons published yet — check back soon.</p>
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-medium hover:bg-navy-700">Try the calculator</a>
+    <a href="{{ url_for('institutions.directory') }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Where to actually invest</a>
+  </div>
+</section>
+{% endblock %}

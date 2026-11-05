@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Calculator — Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">What could it become?</h1>
+  <p class="mt-1 text-slate-600 text-sm">A rough projection, not a promise — real returns vary and nothing here is a guarantee from any institution.</p>
+
+  <form method="get" id="calc-form" class="mt-6 rounded-lg border border-slate-200 bg-white p-5 space-y-5">
+    <div>
+      <div class="flex justify-between text-sm font-medium">
+        <label for="monthly_rwf">Monthly contribution</label>
+        <span id="monthly_rwf-value">RWF {{ "{:,}".format(projection.monthly_rwf) }}</span>
+      </div>
+      <input type="range" id="monthly_rwf" name="monthly_rwf" min="500" max="100000" step="500"
+             value="{{ projection.monthly_rwf }}" class="w-full mt-2 accent-navy-700">
+    </div>
+
+    <div>
+      <div class="flex justify-between text-sm font-medium">
+        <label for="months">Time horizon</label>
+        <span id="months-value">{{ projection.months }} months (~{{ (projection.months / 12) | round(1) }} yrs)</span>
+      </div>
+      <input type="range" id="months" name="months" min="6" max="240" step="6"
+             value="{{ projection.months }}" class="w-full mt-2 accent-navy-700">
+    </div>
+
+    <p class="text-xs text-slate-400">Assumes a {{ (projection.annual_rate * 100) | round(0) | int }}% annual return, compounded monthly — a simplified illustration, not tied to any specific product.</p>
+
+    <noscript>
+      <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5">Recalculate</button>
+    </noscript>
+  </form>
+
+  <div class="mt-6 grid grid-cols-3 gap-3 text-center">
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <p class="text-xs text-slate-500">You put in</p>
+      <p id="total_contributed" class="mt-1 font-bold text-lg">RWF {{ "{:,}".format(projection.total_contributed) }}</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <p class="text-xs text-slate-500">Growth</p>
+      <p id="growth" class="mt-1 font-bold text-lg text-green-700">+RWF {{ "{:,}".format(projection.growth) }}</p>
+    </div>
+    <div class="rounded-lg border border-navy-200 bg-navy-50 p-4">
+      <p class="text-xs text-navy-700">Projected total</p>
+      <p id="total_value" class="mt-1 font-bold text-lg text-navy-900">RWF {{ "{:,}".format(projection.total_value) }}</p>
+    </div>
+  </div>
+
+  <div id="chart" class="mt-6 flex items-end gap-1 h-32 rounded-lg border border-slate-200 bg-white p-4">
+    {# guard against a 0 RWF/month projection: schedule exists but every
+       balance is 0, which would otherwise divide by zero below #}
+    {% set max_balance = (projection.schedule[-1].balance if projection.schedule else 0) or 1 %}
+    {% for point in projection.schedule %}
+      {% if loop.index % (projection.schedule|length // 24 + 1) == 0 or loop.last %}
+        <div class="flex-1 bg-navy-400 rounded-t" style="height: {{ (point.balance / max_balance * 100) | round(1) }}%" title="Month {{ point.month }}: RWF {{ '{:,}'.format(point.balance) }}"></div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Back to lessons</a>
+    <a href="{{ url_for('institutions.directory') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-semibold hover:bg-navy-700">Where to actually invest</a>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/calculator.js') }}" defer></script>
+{% endblock %}

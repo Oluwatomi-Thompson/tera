@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Admin — Tera{% endblock %}
+{% block content %}
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Admin</h1>
+  <p class="mt-1 text-sm text-slate-500">Lesson content is authored in <code class="bg-slate-100 px-1 rounded">app/content/lessons/*.md</code> — this panel manages publish state, order, and institutions, not lesson text (see ADR-004).</p>
+
+  <div class="mt-8 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Lessons</h2>
+    <form method="post" action="{{ url_for('admin.resync') }}">
+      <button type="submit" class="rounded-md bg-navy-900 text-white text-sm font-medium px-4 py-2 hover:bg-navy-700">
+        Resync from markdown
+      </button>
+    </form>
+  </div>
+
+  <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set sync_row = report | selectattr('slug', 'defined') | selectattr('slug', 'equalto', lesson.slug) | list | first %}
+      <div class="flex items-center justify-between gap-4 px-5 py-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ lesson.order_index }}. {{ lesson.title }}</p>
+          <p class="text-xs text-slate-500">{{ lesson.source_path or 'no source file' }} &middot; {{ lesson.questions|length }} question(s)</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          {% if sync_row and sync_row.is_stale %}
+            <span class="text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-1">Stale — resync</span>
+          {% else %}
+            <span class="text-xs font-medium text-green-700 bg-green-100 rounded-full px-2 py-1">Synced</span>
+          {% endif %}
+          <span class="text-xs font-medium rounded-full px-2 py-1 {{ 'bg-green-100 text-green-700' if lesson.is_published else 'bg-slate-100 text-slate-600' }}">
+            {{ 'Published' if lesson.is_published else 'Draft' }}
+          </span>
+          <form method="post" action="{{ url_for('admin.reorder_lesson', lesson_id=lesson.id, direction='up') }}">
+            <button class="w-7 h-7 rounded border border-slate-300 hover:bg-slate-50" title="Move up" aria-label="Move up">&uarr;</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.reorder_lesson', lesson_id=lesson.id, direction='down') }}">
+            <button class="w-7 h-7 rounded border border-slate-300 hover:bg-slate-50" title="Move down" aria-label="Move down">&darr;</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.toggle_publish', lesson_id=lesson.id) }}">
+            <button class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">
+              {{ 'Unpublish' if lesson.is_published else 'Publish' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons found. Run <code>flask seed-db</code> or add a file to app/content/lessons/.</p>
+    {% endfor %}
+  </div>
+
+  {% set stale_files = report | selectattr('is_stale', 'defined') | selectattr('is_stale') | list %}
+  {% if stale_files %}
+    <p class="mt-2 text-sm text-amber-700">{{ stale_files|length }} file(s) have changes not yet reflected in the database — hit "Resync from markdown" above.</p>
+  {% endif %}
+
+  <div class="mt-10 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Institutions</h2>
+    <a href="{{ url_for('admin.new_institution') }}" class="rounded-md bg-navy-900 text-white text-sm font-medium px-4 py-2 hover:bg-navy-700">
+      + Add institution
+    </a>
+  </div>
+
+  <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for institution in institutions %}
+      <div class="flex items-center justify-between gap-4 px-5 py-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ institution.name }}</p>
+          <p class="text-xs text-slate-500">{{ institution.category }} &middot; {{ institution.url }}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="{{ url_for('admin.edit_institution', institution_id=institution.id) }}" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Edit</a>
+          <form method="post" action="{{ url_for('admin.delete_institution', institution_id=institution.id) }}" onsubmit="return confirm('Remove {{ institution.name }}?');">
+            <button class="rounded-md border border-red-200 text-red-700 px-3 py-1.5 text-xs font-medium hover:bg-red-50">Delete</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No institutions yet. Run <code>flask seed-db</code> or add one above.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

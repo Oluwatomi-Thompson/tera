@@ -1,0 +1,3654 @@
+﻿=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\10-prompts\debug-template.md ===
+# Prompt Template: Bug Report
+
+"Expected: [...]. Actual: [...]. Steps to reproduce: [...].
+Relevant files: [...]. Anything already tried: [...]."
+
+Check ai-context/09-gotchas.md before filing â€” might already be known.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\10-prompts\feature-template.md ===
+# Prompt Template: New Feature
+
+Context: point the assistant at ai-context/00-05 first.
+
+Then:
+"I want to add [feature]. It touches [blueprint(s)]. Relevant requirement:
+[FR#/NFR# from the SRS]. Constraints: [any from 02-architecture / 08-decisions]."
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\00-project-overview.md ===
+# Project Overview
+
+TODO: paste condensed version of the mission + problem statement from the SRS
+(Part A, Sections 1â€“2). Keep this to a few paragraphs â€” this file is meant to
+be read first by any AI assistant picking up the project.
+
+- What Tera is:
+- Who it's for:
+- What it explicitly is NOT (not a broker, no transactions, no advice):
+- Current phase: Sprint 0 â€” scaffolding
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\01-tech-stack.md ===
+# Tech Stack
+
+TODO: exact versions once installed, plus *why* each choice was made.
+
+- Backend: Flask ( )
+- ORM: SQLAlchemy ( ) + Flask-Migrate
+- DB: SQLite (dev/test) -> PostgreSQL (prod)
+- Auth: Flask-Login
+- Frontend: Jinja templates + vanilla JS + Tailwind CSS
+- Testing: pytest + pytest-flask
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\02-architecture.md ===
+# Architecture
+
+TODO: paste/describe the architecture diagram from docs/architecture/.
+- Blueprint map (main, auth, lessons, institutions, admin, api)
+- Request flow: browser -> blueprint route -> model/db -> template
+- Where content seeding fits (app/content/lessons/*.md -> `flask seed-db`)
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\03-database-schema.md ===
+# Database Schema
+
+Status: finalized for MVP (Sprint 0). Source of truth for field names is
+app/models/*.py â€” if this doc and the code ever disagree, the code wins;
+update this doc to match.
+
+Draw the actual ER diagram from this (dbdiagram.io or similar) and drop the
+export in docs/architecture/.
+
+## users
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| email | varchar | not null, unique |
+| password_hash | varchar | not null |
+| role | enum('learner','admin') | not null, default 'learner' â€” SQLAlchemy `Enum`, not a bare string |
+| created_at | timestamp | default now() |
+
+## lessons
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| title | varchar | not null |
+| slug | varchar | unique, not null â€” clean URLs, e.g. `/lessons/what-is-investing` |
+| order_index | integer | not null, unique â€” display order |
+| content_body | text | raw markdown, seeded from `app/content/lessons/*.md` â€” do not hand-edit in the DB |
+| is_published | boolean | not null, default false â€” hide drafts while fact-checking |
+| source_path | varchar | which `.md` file this row was last seeded from |
+| created_at | timestamp | default now() |
+| updated_at | timestamp | on update |
+
+## questions
+_Collapsed the old standalone `quizzes` table into this â€” a lesson's questions
+ARE its quiz, so `questions.lesson_id` points straight at `lessons.id`. See
+ADR in 08-decisions.md. Reintroduce a `quizzes` table only if/when you need
+multiple quizzes per lesson or per-quiz settings._
+
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| lesson_id | integer, FK -> lessons.id | not null, on delete cascade |
+| text | text | not null |
+| order_index | integer | |
+
+## choices
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| question_id | integer, FK -> questions.id | not null, on delete cascade |
+| text | varchar | not null |
+| is_correct | boolean | not null, default false â€” app-level validation: exactly one `true` per question |
+
+## user_progress
+_`quiz_score` split into `correct_count` + `total_questions` instead of a
+bare percentage, so a score still means something if a lesson's question
+count ever changes later._
+
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| user_id | integer, FK -> users.id | not null, on delete cascade |
+| lesson_id | integer, FK -> lessons.id | not null, on delete cascade |
+| completed | boolean | not null, default false |
+| correct_count | integer | null until the quiz is taken |
+| total_questions | integer | null until the quiz is taken |
+| completed_at | timestamp | |
+
+Indexes: unique `(user_id, lesson_id)` â€” one progress record per user per lesson.
+
+## institutions
+| field | type | notes |
+|---|---|---|
+| id | integer, PK | |
+| name | varchar | not null |
+| description | text | |
+| url | varchar | not null |
+| category | varchar | e.g. `regulator`, `exchange`, `unit_trust`, `broker` |
+| created_at | timestamp | default now() |
+
+## Relationships at a glance
+```
+users 1--* user_progress *--1 lessons 1--* questions 1--* choices
+institutions (standalone â€” no FK relationships)
+```
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\04-api-contract.md ===
+# API Contract
+
+TODO: only needed if app/api/ ends up used (quiz submission / calculator via fetch()).
+Document each endpoint: method, path, request JSON shape, response JSON shape.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\05-content-strategy.md ===
+# Content Strategy
+
+TODO:
+- Full lesson list in order, each with a one-line learning objective
+- Rwanda-specific facts bank (source each one â€” see docs/research/)
+- Tone/voice notes (simple, jargon-light, RWF-denominated, cite every figure)
+
+## Authoring workflow (finalized â€” see ai-context/08-decisions.md, ADR-004)
+1. Copy `app/content/lessons/_TEMPLATE.md` to `<slug>.md`.
+2. Fill in frontmatter: `slug`, `order`, `title`, `is_published` (leave
+   `false` until fact-checked), `objective`, `sources` (every factual claim
+   in the lesson needs at least one entry here).
+3. Write the lesson under `## Content` in plain markdown.
+4. Write quiz questions under `## Quiz`:
+   - Numbered list = questions, in order.
+   - Sub-bullets `- [ ]` / `- [x]` = choices; exactly one `[x]` per question
+     (not enforced by the parser â€” check it yourself).
+5. Run `flask seed-db`. Re-run any time you edit the file â€” it upserts by
+   `slug`, so it's safe to run repeatedly.
+6. Flip `is_published: true` once the content is fact-checked and re-seed,
+   or toggle it from the admin panel (same effect, no re-seed needed for
+   just a publish-state change).
+
+## Lesson list
+TODO â€” draft the actual sequence, something like:
+1. What is investing, in RWF terms
+2. Mobile money vs. bank vs. broker
+3. Risk and return basics
+4. Where Rwandans can actually invest (RSE, RNIT, etc.)
+5. How much do you actually need to start
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\06-current-sprint.md ===
+# Current Sprint
+
+**Sprint:** 0 â€” Planning & Setup
+**Goal:** finalize requirements, ERD, architecture, scaffold the repo
+
+## Todo
+- [ ] Draw the actual ERD diagram from ai-context/03-database-schema.md (dbdiagram.io or similar) -> docs/architecture/
+- [ ] Write content strategy: full lesson list + objectives (ai-context/05)
+- [ ] Write 2-3 real lesson .md files from _TEMPLATE.md, fact-checked and cited
+- [ ] `flask db init` + first migration once models are reviewed
+- [ ] Try `flask seed-db` against the real lesson files, confirm upsert-by-slug works
+- [ ] Figma wireframes for key screens
+
+## In Progress
+- [ ]
+
+## Done
+- [x] Repo scaffolded
+- [x] ERD finalized (dropped standalone `quizzes` table â€” see ADR-003)
+- [x] Decision made: markdown files are source of truth for lesson content â€” see ADR-004
+- [x] app/models/* written to match finalized ERD
+- [x] app/extensions.py + app/__init__.py wired up (db, migrate, login_manager, blueprints)
+- [x] `flask seed-db` command written (app/commands.py) â€” parses frontmatter + quiz markdown, upserts by slug
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\07-backlog.md ===
+# Backlog
+
+TODO: break the SRS sprint plan (Sprints 1-6) into tickets here as they
+become "next up" rather than "current". Icebox ideas (post-MVP) go at the
+bottom, clearly marked out of scope for this course.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\08-decisions.md ===
+# Architecture Decision Records (ADRs)
+
+## ADR-001: SQLite for dev/test, PostgreSQL for prod
+- Context: TODO
+- Decision: TODO
+- Consequences: TODO
+
+## ADR-002: Vanilla JS over a frontend framework
+- Context: TODO
+- Decision: TODO
+- Consequences: TODO
+
+## ADR-003: Collapse the `quizzes` table into `questions`
+- Context: The original ERD had `quizzes {id, lesson_id}` purely as a join
+  table with no attributes of its own â€” every query about a lesson's quiz
+  had to join through it for nothing.
+- Decision: Removed `quizzes`. `questions.lesson_id` now points directly at
+  `lessons.id`. A lesson's questions are implicitly "its quiz."
+- Consequences: One fewer table, model, and migration to maintain. If a
+  future requirement needs multiple quizzes per lesson or per-quiz settings
+  (time limits, retakes), reintroduce `quizzes` then â€” it's a cheap
+  Alembic migration, not worth paying for now.
+
+## ADR-004: Markdown files are the single source of truth for lesson content
+- Context: Content accuracy (RWF figures, institution names, thresholds) is
+  the core risk for this product. Editing `lessons.content_body` directly
+  through an admin panel would create two writable copies of the same
+  content (the `.md` file and the DB row) that can silently drift â€”
+  especially risky here because every factual claim needs to stay traceable
+  to a citation.
+- Decision: `app/content/lessons/*.md` is authoritative. `flask seed-db`
+  (see app/commands.py) parses each file's YAML frontmatter + body and
+  upserts the matching `Lesson`/`Question`/`Choice` rows by `slug`. The
+  admin panel (FR10) does NOT provide a content_body edit form; it only
+  manages what has no natural home in a `.md` file: publish/unpublish
+  (`is_published`), reordering, and triggering a resync. Content authoring
+  happens in a text editor, with real git history and diffs for every
+  factual change.
+- Consequences: FR10 in the SRS reads as "admin content management," which
+  now means something narrower than full CRUD â€” worth a one-line note if a
+  facilitator asks why there's no lesson-edit form in the admin UI. Tradeoff
+  accepted deliberately: one source of truth was a stated priority over
+  admin-panel completeness.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\ai-context\09-gotchas.md ===
+# Gotchas
+
+TODO: running list of "don't touch this" / known workarounds as you hit them.
+Empty for now â€” that's expected at Sprint 0.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\admin\forms.py ===
+"""
+InstitutionForm â€” Institutions are NOT sourced from markdown (see ADR-004),
+so this one *is* a real CRUD form, unlike lessons.
+
+No LessonForm / QuestionForm here on purpose â€” lesson content is authored
+in app/content/lessons/*.md, not through the admin panel. The admin panel's
+lesson-related powers are: publish/unpublish, reorder, and resync (see
+routes.py).
+"""
+from flask_wtf import FlaskForm
+from wtforms import SelectField, StringField, TextAreaField
+from wtforms.validators import DataRequired, Length, Optional, URL
+
+CATEGORY_CHOICES = [
+    ("regulator", "Regulator"),
+    ("exchange", "Exchange"),
+    ("unit_trust", "Unit Trust"),
+    ("broker", "Licensed Broker"),
+]
+
+
+class InstitutionForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(), Length(max=255)])
+    description = TextAreaField("Description", validators=[Optional()])
+    url = StringField("Website URL", validators=[DataRequired(), URL()])
+    category = SelectField("Category", choices=CATEGORY_CHOICES, validators=[DataRequired()])
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\admin\routes.py ===
+from flask import flash, redirect, render_template, url_for
+from flask_login import login_required
+
+from app.admin import bp
+from app.admin.forms import InstitutionForm
+from app.commands import seed_all, sync_report
+from app.extensions import db
+from app.models import Institution, Lesson
+from app.utils import admin_required
+
+
+# Scope note: lesson CONTENT is authored in app/content/lessons/*.md and
+# loaded via `flask seed-db` / the Resync button below (see
+# ai-context/08-decisions.md, ADR-004). This blueprint does NOT edit
+# content_body â€” it manages what has no natural home in a .md file.
+
+
+@bp.get("/")
+@login_required
+@admin_required
+def dashboard():
+    lessons = Lesson.query.order_by(Lesson.order_index).all()
+    institutions = Institution.query.order_by(Institution.category, Institution.name).all()
+    report = sync_report()
+    return render_template(
+        "admin/dashboard.html", lessons=lessons, institutions=institutions, report=report
+    )
+
+
+@bp.post("/lessons/<int:lesson_id>/publish")
+@login_required
+@admin_required
+def toggle_publish(lesson_id):
+    lesson = Lesson.query.get_or_404(lesson_id)
+    lesson.is_published = not lesson.is_published
+    db.session.commit()
+    flash(f"'{lesson.title}' is now {'published' if lesson.is_published else 'unpublished'}.", "success")
+    return redirect(url_for("admin.dashboard"))
+
+
+@bp.post("/lessons/<int:lesson_id>/reorder/<direction>")
+@login_required
+@admin_required
+def reorder_lesson(lesson_id, direction):
+    """Swap this lesson's order_index with its neighbor's â€” keeps
+    order_index unique at all times (the DB constraint requires it) instead
+    of renumbering the whole list on every move."""
+    if direction not in ("up", "down"):
+        flash("Invalid reorder direction.", "error")
+        return redirect(url_for("admin.dashboard"))
+
+    lesson = Lesson.query.get_or_404(lesson_id)
+    neighbor_query = Lesson.query.filter(
+        Lesson.order_index < lesson.order_index
+        if direction == "up"
+        else Lesson.order_index > lesson.order_index
+    ).order_by(Lesson.order_index.desc() if direction == "up" else Lesson.order_index.asc())
+    neighbor = neighbor_query.first()
+
+    if neighbor is None:
+        flash(f"'{lesson.title}' is already at the {'top' if direction == 'up' else 'bottom'}.", "info")
+        return redirect(url_for("admin.dashboard"))
+
+    # order_index is UNIQUE and SQLite enforces that immediately (not
+    # deferred), so writing both new values in one flush can collide with
+    # whatever value is still on the *other* row at the instant either
+    # single UPDATE executes. Route one side through a temporary value
+    # that can't collide with anything, flushing between steps, then land
+    # both rows on their final values in a last flush.
+    lesson_target, neighbor_target = neighbor.order_index, lesson.order_index
+    lesson.order_index = -1
+    db.session.flush()
+    neighbor.order_index = neighbor_target
+    db.session.flush()
+    lesson.order_index = lesson_target
+    db.session.commit()
+    return redirect(url_for("admin.dashboard"))
+
+
+@bp.post("/resync")
+@login_required
+@admin_required
+def resync():
+    """Runs the same upsert `flask seed-db` does, triggered from the UI
+    instead of a shell â€” for when you've edited a .md file and want it live
+    without SSH access to wherever this is deployed."""
+    count = seed_all()
+    flash(f"Resynced {count} lesson file(s) from app/content/lessons/.", "success")
+    return redirect(url_for("admin.dashboard"))
+
+
+@bp.route("/institutions/new", methods=["GET", "POST"])
+@login_required
+@admin_required
+def new_institution():
+    form = InstitutionForm()
+    if form.validate_on_submit():
+        institution = Institution(
+            name=form.name.data,
+            description=form.description.data,
+            url=form.url.data,
+            category=form.category.data,
+        )
+        db.session.add(institution)
+        db.session.commit()
+        flash(f"Added '{institution.name}' to the directory.", "success")
+        return redirect(url_for("admin.dashboard"))
+    return render_template("admin/institution_form.html", form=form, institution=None)
+
+
+@bp.route("/institutions/<int:institution_id>/edit", methods=["GET", "POST"])
+@login_required
+@admin_required
+def edit_institution(institution_id):
+    institution = Institution.query.get_or_404(institution_id)
+    form = InstitutionForm(obj=institution)
+    if form.validate_on_submit():
+        form.populate_obj(institution)
+        db.session.commit()
+        flash(f"Updated '{institution.name}'.", "success")
+        return redirect(url_for("admin.dashboard"))
+    return render_template("admin/institution_form.html", form=form, institution=institution)
+
+
+@bp.post("/institutions/<int:institution_id>/delete")
+@login_required
+@admin_required
+def delete_institution(institution_id):
+    institution = Institution.query.get_or_404(institution_id)
+    db.session.delete(institution)
+    db.session.commit()
+    flash(f"Removed '{institution.name}' from the directory.", "info")
+    return redirect(url_for("admin.dashboard"))
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\admin\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("admin", __name__)
+
+from app.admin import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\api\routes.py ===
+from flask import jsonify, request
+
+from app.api import bp
+from app.api.schemas import parse_calculator_request
+from app.lessons.utils import project_compound_growth
+
+
+@bp.post("/calculator")
+def calculator():
+    """Used by static/js/calculator.js so the lessons/calculator.html page
+    can update the projection live as the learner drags the sliders, without
+    a full page reload. The server-rendered GET /lessons/calculator route
+    still works standalone (progressive enhancement, not a hard dependency
+    on JS)."""
+    try:
+        monthly_rwf, months, annual_rate = parse_calculator_request(request.get_json(silent=True) or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify(project_compound_growth(monthly_rwf, months, annual_rate))
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\api\schemas.py ===
+"""
+Request/response shapes for the API blueprint. Kept as plain functions
+rather than a schema library (Marshmallow etc.) â€” the surface area here is
+one endpoint, so a dependency for validation would be heavier than the
+problem.
+
+POST /api/v1/calculator
+  Request JSON:  {"monthly_rwf": int, "months": int, "annual_rate": float?}
+  Response JSON: {"schedule": [{"month": int, "balance": int}, ...],
+                   "total_contributed": int, "total_value": int,
+                   "growth": int, "annual_rate": float, "months": int,
+                   "monthly_rwf": int}
+  Errors: 400 {"error": "..."} for bad/missing input.
+"""
+
+
+def parse_calculator_request(payload: dict) -> tuple[int, int, float]:
+    if not isinstance(payload, dict):
+        raise ValueError("Request body must be a JSON object.")
+
+    try:
+        monthly_rwf = int(payload.get("monthly_rwf", 2000))
+        months = int(payload.get("months", 24))
+    except (TypeError, ValueError):
+        raise ValueError("monthly_rwf and months must be numbers.")
+
+    annual_rate = payload.get("annual_rate", 0.10)
+    try:
+        annual_rate = float(annual_rate)
+    except (TypeError, ValueError):
+        raise ValueError("annual_rate must be a number.")
+
+    if monthly_rwf < 0 or monthly_rwf > 10_000_000:
+        raise ValueError("monthly_rwf must be between 0 and 10,000,000.")
+    if months < 1 or months > 480:
+        raise ValueError("months must be between 1 and 480.")
+    if annual_rate < 0 or annual_rate > 1:
+        raise ValueError("annual_rate must be between 0 and 1 (e.g. 0.10 for 10%).")
+
+    return monthly_rwf, months, annual_rate
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\api\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("api", __name__)
+
+from app.api import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\auth\forms.py ===
+from flask_wtf import FlaskForm
+from wtforms import BooleanField, PasswordField, StringField
+from wtforms.validators import DataRequired, Email, EqualTo, Length
+
+
+class RegisterForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField(
+        "Password", validators=[DataRequired(), Length(min=8, message="At least 8 characters.")]
+    )
+    confirm_password = PasswordField(
+        "Confirm password",
+        validators=[DataRequired(), EqualTo("password", message="Passwords must match.")],
+    )
+
+
+class LoginForm(FlaskForm):
+    email = StringField("Email", validators=[DataRequired(), Email()])
+    password = PasswordField("Password", validators=[DataRequired()])
+    remember_me = BooleanField("Keep me signed in")
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\auth\routes.py ===
+from flask import flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required, login_user, logout_user
+
+from app.auth import bp
+from app.auth.forms import LoginForm, RegisterForm
+from app.extensions import db
+from app.lessons.utils import calculate_progress
+from app.models import User
+
+
+@bp.route("/register", methods=["GET", "POST"])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for("main.dashboard"))
+
+    form = RegisterForm()
+    if form.validate_on_submit():
+        if User.query.filter_by(email=form.email.data.lower()).first():
+            flash("An account with that email already exists. Try logging in instead.", "error")
+            return render_template("auth/register.html", form=form)
+
+        user = User(email=form.email.data.lower())
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+
+        login_user(user)
+        flash("Welcome to Tera â€” let's start with the basics.", "success")
+        return redirect(url_for("main.dashboard"))
+
+    return render_template("auth/register.html", form=form)
+
+
+@bp.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("main.dashboard"))
+
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data.lower()).first()
+        if user is None or not user.check_password(form.password.data):
+            flash("Incorrect email or password.", "error")
+            return render_template("auth/login.html", form=form)
+
+        login_user(user, remember=form.remember_me.data)
+        flash("Welcome back.", "success")
+        next_url = request.args.get("next")
+        return redirect(next_url or url_for("main.dashboard"))
+
+    return render_template("auth/login.html", form=form)
+
+
+@bp.get("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("You've been logged out.", "info")
+    return redirect(url_for("main.index"))
+
+
+@bp.get("/profile")
+@login_required
+def profile():
+    progress = calculate_progress(current_user)
+    return render_template("auth/profile.html", progress=progress)
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\auth\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("auth", __name__)
+
+from app.auth import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\how-much-to-start.md ===
+---
+slug: how-much-to-start
+order: 5
+title: "How Much Do You Actually Need to Start"
+is_published: true
+objective: "Correct the common assumption that investing requires a large sum, using real RWF entry points, and set up the calculator as a next step."
+sources:
+  - "Rwanda National Investment Trust Ltd. (2024). Offer document: RNIT Iterambere Fund. https://rnit.rw/wp-content/uploads/2024/06/OFFER-DOCUMENT-RIF.pdf"
+  - "EFG Hermes. (2025). Rwanda Stock Exchange: Market information. https://tg.efghermes.com/Market/GetById/2729"
+---
+
+## Content
+
+Here's the assumption this whole course is built to correct: that investing
+requires a large amount of money you don't currently have. For Rwanda
+specifically, that's not true.
+
+**RNIT's Iterambere Fund** has a reinvestment-option minimum of just **RWF
+2,000**, with additional contributions accepted in multiples of RWF 1,000
+after that (RNIT, 2024). That's less than many people spend on mobile data
+or transport in a single week. This is the single lowest, most concrete
+entry point referenced throughout this course.
+
+**Rwanda Stock Exchange shares** work differently â€” you buy in board lots
+of a minimum of 100 shares (EFG Hermes, 2025), so your actual minimum cost
+depends on that day's share price for whichever company you're interested
+in. Share prices move, so this course won't quote you a fixed total â€” check
+current prices directly with the RSE or a licensed broker when you're ready.
+
+**The real barrier usually isn't the minimum amount â€” it's not knowing the
+minimum amount exists.** That's the information gap Tera was built to
+close: most people researching "how to invest" encounter guides built
+around foreign minimums and foreign currencies, never see a number like
+"RWF 2,000," and reasonably conclude investing isn't for them yet.
+
+**What small, regular contributions can become over time** is exactly what
+Tera's [calculator](/lessons/calculator) is for â€” try putting in a monthly
+amount you could realistically set aside, and see a rough, illustrative
+projection of how it could grow. It's not a guarantee from any institution,
+just a way to make the idea concrete.
+
+Once you've gone through these five lessons, you have what you need to go
+talk to a real institution. That's the whole plan.
+
+## Quiz
+
+1. What is the minimum reinvestment-option contribution to start with RNIT's Iterambere Fund?
+   - [ ] RWF 100,000
+   - [x] RWF 2,000
+   - [ ] RWF 500,000
+   - [ ] There is no minimum
+
+2. Why doesn't this course quote a single fixed RWF amount needed to buy RSE shares?
+   - [ ] Because RSE shares cannot be purchased by individuals
+   - [x] Because share prices change, so the real cost of a 100-share board lot changes with them
+   - [ ] Because the RSE does not use board lots
+   - [ ] Because RSE investing is not available to Rwandans
+
+3. According to this course, what is usually the bigger barrier to a first investment?
+   - [ ] Not having any money at all
+   - [x] Not knowing that low-minimum, local options like RNIT exist
+   - [ ] Mobile money not being accepted anywhere
+   - [ ] The Capital Markets Authority restricting access
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\mobile-money-bank-broker.md ===
+---
+slug: mobile-money-bank-broker
+order: 2
+title: "Mobile Money vs. Bank vs. Broker"
+is_published: true
+objective: "Explain the different role each of mobile money, a bank account, and a licensed broker plays when you start investing in Rwanda."
+sources:
+  - "National Institute of Statistics of Rwanda. (2024). FinScope Rwanda 2024 survey report. https://statistics.gov.rw/statistical-publications/business-establishment-finance-trade/finscope-survey-2024"
+  - "Rwanda National Investment Trust Ltd. (2024). Offer document: RNIT Iterambere Fund. https://rnit.rw/wp-content/uploads/2024/06/OFFER-DOCUMENT-RIF.pdf"
+---
+
+## Content
+
+Most investing guides are written assuming you already have a bank account
+and a credit card. In Rwanda, that's backwards: mobile money reaches far
+more people than traditional banking does. As of Rwanda's 2024 FinScope
+survey, about 86% of adults use mobile money, while only around 22% are
+"banked" in the traditional sense (NISR, 2024). So where does investing fit
+in?
+
+**Mobile money** (like MTN MoMo or Airtel Money) is how most Rwandans move
+money day to day. It's excellent for small, frequent transactions â€” but on
+its own, a mobile money wallet doesn't buy you shares or units in a fund.
+
+**A bank account** is still useful for larger or recurring transfers â€” for
+example, some investment products require funding above a mobile-money
+transaction limit, or use a bank standing order for recurring contributions.
+RNIT's Iterambere Fund, for instance, explicitly supports a systematic
+investment plan funded "either through their respective employer or through
+a bank standing order" (RNIT, 2024) â€” but its minimum entry amount (RWF
+2,000) is low enough that many people fund their first contribution directly
+via mobile money or an agent instead.
+
+**A licensed broker or fund manager** is who you actually invest *through*.
+They are registered with Rwanda's Capital Markets Authority (CMA), and they
+are the entity that executes a trade or processes your unit purchase. Tera
+doesn't do this â€” we point you to institutions that do, in Lesson 4.
+
+The practical takeaway: you likely already have the payment method (mobile
+money) you need to fund your first investment. What's usually missing isn't
+money or a bank account â€” it's knowing *which* licensed institution to send
+that money to, and that's what the rest of this course covers.
+
+## Quiz
+
+1. Which of the following is true about financial access in Rwanda, per the 2024 FinScope survey?
+   - [ ] Traditional banking reaches more adults than mobile money
+   - [x] Mobile money reaches far more adults (~86%) than traditional banking (~22%)
+   - [ ] Fewer than half of Rwandan adults use any financial service
+   - [ ] Mobile money is banned for financial products
+
+2. Can you fund an investment product in Rwanda using mobile money?
+   - [ ] No, investing always requires a credit card
+   - [x] Often yes, especially for products with a low minimum entry amount
+   - [ ] Only foreign investors can use mobile money
+   - [ ] Mobile money can only be used for airtime
+
+3. What is the role of a licensed broker or fund manager?
+   - [ ] They are the same thing as a mobile money provider
+   - [x] They are the regulated entity you actually invest through
+   - [ ] They have no connection to the Capital Markets Authority
+   - [ ] They are optional and can be skipped entirely
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\risk-and-return-basics.md ===
+---
+slug: risk-and-return-basics
+order: 3
+title: "Risk and Return Basics"
+is_published: true
+objective: "Explain the relationship between risk and return, and why diversification matters, without recommending any specific product."
+sources:
+  - "Capital Markets Authority of Rwanda. (2025). Rwanda's youth urged to seize investment opportunities at Capital Market Youth Forum 2025. https://www.cma.rw/news-publications/press-center/rwandas-youth-urged-to-seize-investment-opportunities-at-capital-market-youth-forum-2025"
+  - "Rwanda National Investment Trust Ltd. (2024). Offer document: RNIT Iterambere Fund. https://rnit.rw/wp-content/uploads/2024/06/OFFER-DOCUMENT-RIF.pdf"
+---
+
+## Content
+
+Every investment carries some risk â€” the possibility that it's worth less
+when you sell than when you bought it. In exchange for accepting that risk,
+investors generally expect a higher potential return than they'd get from
+simply saving. This is the central trade-off in investing: more potential
+growth generally comes with more potential for loss. Understanding it is
+the whole point of this lesson.
+
+**Different instruments carry different risk levels.** Broadly, government
+bonds are considered lower-risk (the government is a relatively reliable
+borrower), individual company shares are higher-risk (a single company's
+value can swing a lot), and a diversified fund sits in between â€” because it
+spreads your money across many assets instead of betting on one. RNIT's
+Iterambere Fund, for example, is structured with "exposure to debt assets
+including money market instruments up to 100%, while having the objective
+to invest in equity assets up to 30%" (RNIT, 2024) â€” a deliberate mix meant
+to balance safety and growth rather than maximize either one alone.
+
+**Diversification** is the practice of not putting all your money in one
+place. A fund that holds many different bonds and shares is less exposed to
+any single company or sector doing badly. This is part of why Rwanda's
+capital market institutions have specifically promoted collective investment
+schemes (unit trusts) as an accessible starting point for new investors â€”
+they offer diversification without requiring you to personally research and
+pick individual company shares.
+
+**Time horizon matters too.** Money you might need next month shouldn't be
+invested in anything volatile â€” that's what savings and emergency funds are
+for. Money you won't need for several years has more room to ride out
+short-term ups and downs. Rwanda's Capital Markets Authority has
+specifically framed the capital market as "a tool for building long-term
+financial independence" (CMA, 2025) â€” not a place for money you need back
+tomorrow.
+
+**What this lesson is not:** a recommendation to buy any specific product.
+Tera doesn't tell you what to invest in â€” that decision, and its risk, is
+yours to make with a licensed institution directly.
+
+## Quiz
+
+1. What is the core trade-off in investing?
+   - [ ] Higher risk always guarantees higher returns
+   - [x] Higher potential return generally comes with higher potential risk
+   - [ ] There is no relationship between risk and return
+   - [ ] Risk only applies to foreign investments
+
+2. What does diversification mean?
+   - [ ] Investing all your money in one high-performing company
+   - [x] Spreading money across multiple assets to reduce exposure to any one of them
+   - [ ] Avoiding all forms of investment
+   - [ ] Only investing in government bonds
+
+3. Why does time horizon matter when investing?
+   - [ ] It doesn't â€” all money should be invested the same way regardless of when you need it
+   - [x] Money you need soon should carry less risk than money you won't need for years
+   - [ ] Longer time horizons always eliminate risk completely
+   - [ ] Time horizon only matters for institutional investors
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\what-is-investing.md ===
+---
+slug: what-is-investing
+order: 1
+title: "What Is Investing, in RWF Terms"
+is_published: true
+objective: "Explain what investing means and why it's different from saving, using RWF examples instead of foreign ones."
+sources:
+  - "National Institute of Statistics of Rwanda. (2024). FinScope Rwanda 2024 survey report. https://statistics.gov.rw/statistical-publications/business-establishment-finance-trade/finscope-survey-2024"
+  - "Ntakirutimana, P., Ndayisaba, Y. M., Mani, G., Chipeta, C., Mcsharry, P., Sowon, K., & Luhanga, E. T. (2026). Preliminary insights on digital financial literacy gaps among Rwandan youth and considerations for AI-powered interventions. Sustainability, 18(9), 4155. https://www.mdpi.com/2071-1050/18/9/4155"
+---
+
+## Content
+
+If you have a mobile money wallet, you're already "financially included" â€” and
+in Rwanda, most people are. Mobile money reaches roughly 86% of adults
+nationally, part of a 96% overall financial inclusion rate (NISR, 2024).
+
+But financial inclusion isn't the same as investing. **Saving** means putting
+money aside â€” in a mobile money wallet, a bank account, or an *ikimina*
+(informal savings group) â€” and getting back roughly what you put in.
+**Investing** means putting money into something (shares in a company, a
+government bond, a professionally managed fund) with the expectation that it
+grows in value over time â€” and the real possibility that it could also lose
+value. That trade-off, more potential growth for more risk, is the core idea
+behind every lesson in Tera.
+
+A 2026 study of 300 young Rwandan adults found that more than 90% already use
+a formal financial service and more than 85% use mobile money â€” but
+participants showed only modest knowledge of core financial concepts, with
+the gap wider among women and less-educated respondents (Ntakirutimana et
+al., 2026). In other words: access to financial tools is not the problem.
+Knowing what to do with them is. That's the gap Tera exists to close.
+
+**Why this matters now:** money sitting still loses value every year to
+inflation. Money invested, even modestly, has a chance to grow faster than
+that. The rest of this course walks through how, specifically, that works in
+Rwanda â€” not in a US brokerage account you'll never open.
+
+## Quiz
+
+1. What is the main difference between saving and investing?
+   - [ ] Saving is for RWF, investing is for foreign currency
+   - [x] Saving aims to preserve money; investing accepts risk for a chance at growth
+   - [ ] There is no real difference
+   - [ ] Investing is only for banks
+
+2. According to Rwanda's FinScope 2024 survey, roughly what share of adults use mobile money?
+   - [ ] 20%
+   - [ ] 50%
+   - [x] 86%
+   - [ ] 100%
+
+3. What did the 2026 study of young Rwandan adults find?
+   - [ ] Most had never used any financial service
+   - [x] Most used formal/mobile financial services but had only modest investing knowledge
+   - [ ] Most were already active investors
+   - [ ] Financial literacy was highest among the least educated
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\where-rwandans-can-invest.md ===
+---
+slug: where-rwandans-can-invest
+order: 4
+title: "Where Rwandans Can Actually Invest"
+is_published: true
+objective: "Name the real, licensed Rwandan institutions a learner can go to next, and what each one does."
+sources:
+  - "Capital Markets Authority of Rwanda. (2025). Rwanda's youth urged to seize investment opportunities at Capital Market Youth Forum 2025. https://www.cma.rw/news-publications/press-center/rwandas-youth-urged-to-seize-investment-opportunities-at-capital-market-youth-forum-2025"
+  - "Rwanda National Investment Trust Ltd. (2024). Offer document: RNIT Iterambere Fund. https://rnit.rw/wp-content/uploads/2024/06/OFFER-DOCUMENT-RIF.pdf"
+  - "EFG Hermes. (2025). Rwanda Stock Exchange: Market information. https://tg.efghermes.com/Market/GetById/2729"
+---
+
+## Content
+
+This is the lesson where the names stop being abstract. Here are the real
+institutions behind Rwanda's capital market â€” the same ones Tera's
+[resource directory](/institutions/) links to directly.
+
+**Capital Markets Authority (CMA)** â€” the regulator. The CMA doesn't sell
+you anything; it licenses and oversees everyone else on this list, and runs
+public education initiatives specifically aimed at closing the investment
+literacy gap this course exists to address (CMA, 2025). If you want to
+confirm whether a broker or fund is actually licensed, the CMA is the
+authority to check with.
+
+**Rwanda Stock Exchange (RSE)** â€” where shares of publicly listed companies
+(banks, telecoms, manufacturers, and others) are bought and sold. You don't
+trade directly on the RSE yourself; you go through a licensed brokerage
+firm. Shares trade in board lots with a minimum of 100 shares per
+transaction (EFG Hermes, 2025) â€” so your entry cost depends on the price of
+the particular share, which changes daily like any market.
+
+**Rwanda National Investment Trust (RNIT)** â€” a government-owned fund
+manager running the Iterambere Fund, a unit trust (a professionally managed,
+diversified pool of investments) designed specifically to be accessible:
+its minimum initial investment under the reinvestment option is just RWF
+2,000, "in multiples of '000 thereafter" (RNIT, 2024). This is the lowest
+realistic entry point covered in this course, and the specific figure
+referenced in Tera's own problem statement.
+
+**Licensed brokers** â€” firms authorized by the CMA to execute trades on the
+RSE on your behalf. You'll need to open an account with one if you want to
+buy individual company shares rather than a pooled fund like RNIT's.
+
+The common thread: none of these is Tera. Once you understand the basics,
+the next concrete step is to visit one of these institutions directly,
+confirm their current requirements, and open an account there â€” not here.
+
+## Quiz
+
+1. What does Rwanda's Capital Markets Authority (CMA) do?
+   - [ ] It sells shares directly to the public
+   - [x] It regulates and licenses the institutions that do
+   - [ ] It only operates outside Rwanda
+   - [ ] It is a private brokerage firm
+
+2. What is the minimum board lot size for buying shares on the Rwanda Stock Exchange?
+   - [ ] 1 share
+   - [ ] 10 shares
+   - [x] 100 shares
+   - [ ] 1,000 shares
+
+3. What is distinctive about RNIT's Iterambere Fund for a first-time investor?
+   - [ ] It requires a minimum of RWF 1,000,000 to start
+   - [x] Its reinvestment-option minimum is as low as RWF 2,000
+   - [ ] It only accepts institutional investors
+   - [ ] It is not regulated by the CMA
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\lessons\_TEMPLATE.md ===
+---
+slug: lesson-slug-here
+order: 0
+title: "Lesson title here"
+is_published: false
+objective: "What the learner should be able to do after this lesson"
+sources:
+  - "Author. (Year). Title. URL"
+---
+
+## Content
+
+TODO: write the lesson body here, RWF-denominated examples, Rwanda-specific
+references only. Fact-check every figure against a source in the frontmatter
+above. This section becomes `lessons.content_body` verbatim when seeded â€”
+`flask seed-db` matches on `slug`, so it's safe to edit and re-run.
+
+## Quiz
+
+Numbered questions, `- [ ]` for a wrong choice, `- [x]` for the correct one.
+Exactly one `[x]` per question â€” the parser doesn't enforce this, so double
+check it yourself before seeding.
+
+1. Question text?
+   - [ ] wrong choice
+   - [x] correct choice
+   - [ ] wrong choice
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\content\institutions.yaml ===
+# Seed data for the "Where to actually invest" directory (FR9).
+# Upserted by name via `flask seed-db` / the admin "Resync" button is NOT
+# wired to this file (see ADR-004 â€” only lesson content resyncs from files;
+# institutions are edited live in the admin panel after this initial seed).
+# Every entry here must be a real, publicly verifiable, licensed Rwandan
+# institution â€” see ai-context/08-decisions.md business rule in the SRS
+# (Section 5.5): the Resource Directory may only list CMA-licensed/regulated
+# institutions.
+
+- name: "Capital Markets Authority (CMA)"
+  category: regulator
+  url: "https://www.cma.rw"
+  description: >
+    Rwanda's capital markets regulator. Licenses and oversees the exchange,
+    brokers, and fund managers listed below. If you want to confirm an
+    institution is actually licensed, this is the authority to check with.
+
+- name: "Rwanda Stock Exchange (RSE)"
+  category: exchange
+  url: "https://rse.rw"
+  description: >
+    Where shares of Rwanda's publicly listed companies are traded. Shares
+    trade in a minimum board lot of 100 shares. You trade through a
+    licensed broker, not directly with the RSE.
+
+- name: "Rwanda National Investment Trust (RNIT) â€” Iterambere Fund"
+  category: unit_trust
+  url: "https://rnit.rw"
+  description: >
+    A government-owned, professionally managed unit trust. Its
+    reinvestment-option minimum initial investment is RWF 2,000 â€” the
+    lowest-cost entry point covered in Tera's lessons.
+
+- name: "RSE Licensed Stockbrokers Directory"
+  category: broker
+  url: "https://rse.rw/stockbrokers"
+  description: >
+    The Rwanda Stock Exchange's own list of currently licensed stockbrokers.
+    Tera deliberately doesn't name one specific firm here â€” licensing status
+    can change, so this official, always-current directory is the
+    trustworthy source to check before opening a trading account.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\institutions\routes.py ===
+from flask import render_template, request
+
+from app.institutions import bp
+from app.institutions.utils import CATEGORY_LABELS, filter_by_category
+from app.models import Institution
+
+
+@bp.get("/")
+def directory():
+    """FR9: the funnel's destination â€” real, licensed institutions, not a
+    Tera product. Every page in this blueprint should read as "go here
+    next," never as "do this inside Tera."""
+    category = request.args.get("category")
+    institutions = filter_by_category(category)
+    return render_template(
+        "institutions/directory.html",
+        institutions=institutions,
+        categories=CATEGORY_LABELS,
+        active_category=category,
+    )
+
+
+@bp.get("/<int:institution_id>")
+def detail(institution_id):
+    institution = Institution.query.get_or_404(institution_id)
+    return render_template("institutions/detail.html", institution=institution)
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\institutions\utils.py ===
+from app.models import Institution
+
+CATEGORY_LABELS = {
+    "regulator": "Regulator",
+    "exchange": "Exchange",
+    "unit_trust": "Unit Trust",
+    "broker": "Licensed Broker",
+}
+
+
+def filter_by_category(category: str | None):
+    query = Institution.query.order_by(Institution.category, Institution.name)
+    if category and category in CATEGORY_LABELS:
+        query = query.filter_by(category=category)
+    return query.all()
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\institutions\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("institutions", __name__)
+
+from app.institutions import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\lessons\forms.py ===
+"""
+No WTForm here on purpose: a quiz's question count is dynamic (driven by
+whatever's in the lesson's .md file), so the quiz form is rendered directly
+from `lesson.questions` in templates/lessons/quiz.html and parsed from raw
+`request.form` in routes.py (`submit_quiz`) instead of a fixed WTForms class.
+"""
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\lessons\routes.py ===
+from flask import abort, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+
+from app.extensions import db
+from app.lessons import bp
+from app.lessons.utils import calculate_progress, grade_quiz, project_compound_growth
+from app.models import Lesson, UserProgress
+
+
+def _get_visible_lesson_or_404(slug: str) -> Lesson:
+    """A draft lesson (is_published=False) is 404 to everyone except admins,
+    so a half-written lesson never leaks to a learner who guesses/bookmarks
+    its URL â€” same behavior whether they're logged out or logged in."""
+    lesson = Lesson.query.filter_by(slug=slug).first_or_404()
+    if not lesson.is_published and not (current_user.is_authenticated and current_user.is_admin):
+        abort(404)
+    return lesson
+
+
+@bp.get("/")
+def list_lessons():
+    """FR3: ordered lesson list, with each lesson's completion state for the
+    signed-in learner so the list doubles as a lightweight progress view."""
+    lessons = Lesson.query.filter_by(is_published=True).order_by(Lesson.order_index).all()
+
+    progress_by_lesson = {}
+    if current_user.is_authenticated:
+        rows = UserProgress.query.filter_by(user_id=current_user.id).all()
+        progress_by_lesson = {row.lesson_id: row for row in rows}
+
+    return render_template("lessons/list.html", lessons=lessons, progress_by_lesson=progress_by_lesson)
+
+
+@bp.get("/<slug>")
+def detail(slug):
+    """FR4: full lesson content, rendered from markdown at request time."""
+    lesson = _get_visible_lesson_or_404(slug)
+
+    progress = None
+    if current_user.is_authenticated:
+        progress = UserProgress.query.filter_by(
+            user_id=current_user.id, lesson_id=lesson.id
+        ).first()
+
+    return render_template("lessons/detail.html", lesson=lesson, progress=progress)
+
+
+@bp.get("/<slug>/quiz")
+@login_required
+def quiz(slug):
+    """FR5: quiz-taking view. Login required since a result has to be saved
+    to *someone* â€” there's no meaningful anonymous quiz attempt here."""
+    lesson = _get_visible_lesson_or_404(slug)
+    if not lesson.questions:
+        flash("This lesson doesn't have a quiz yet.", "info")
+        return redirect(url_for("lessons.detail", slug=slug))
+
+    return render_template("lessons/quiz.html", lesson=lesson)
+
+
+@bp.post("/<slug>/quiz")
+@login_required
+def submit_quiz(slug):
+    """FR6 + FR7: grade the submission and upsert the learner's UserProgress
+    row (one per user per lesson â€” resubmitting a quiz overwrites the
+    previous attempt's score rather than creating a duplicate)."""
+    lesson = _get_visible_lesson_or_404(slug)
+    if not lesson.questions:
+        abort(404)
+
+    submitted = {
+        key.removeprefix("question-"): value
+        for key, value in request.form.items()
+        if key.startswith("question-")
+    }
+    result = grade_quiz(lesson, submitted)
+
+    progress = UserProgress.query.filter_by(
+        user_id=current_user.id, lesson_id=lesson.id
+    ).first()
+    if progress is None:
+        progress = UserProgress(user_id=current_user.id, lesson_id=lesson.id)
+        db.session.add(progress)
+
+    progress.completed = True
+    progress.correct_count = result["correct_count"]
+    progress.total_questions = result["total_questions"]
+    from datetime import datetime
+
+    progress.completed_at = datetime.utcnow()
+    db.session.commit()
+
+    return render_template("lessons/result.html", lesson=lesson, result=result, progress=progress)
+
+
+@bp.get("/calculator")
+def calculator():
+    """FR8: compound-growth calculator. Public â€” no account needed to play
+    with the numbers, since this is meant to hook curiosity, not gate it."""
+    monthly_rwf = request.args.get("monthly_rwf", default=2000, type=int)
+    months = request.args.get("months", default=24, type=int)
+
+    monthly_rwf = max(0, min(monthly_rwf, 10_000_000))
+    months = max(1, min(months, 480))  # cap at 40 years, keeps the chart sane
+
+    projection = project_compound_growth(monthly_rwf, months)
+    return render_template("lessons/calculator.html", projection=projection)
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\lessons\utils.py ===
+"""
+Pure-ish helper functions for the lessons blueprint: progress calculation,
+quiz grading, and the compound-growth calculator (FR7, FR6, FR8).
+
+Kept here instead of inline in routes.py so they're independently testable
+without spinning up a request.
+"""
+from __future__ import annotations
+
+from app.models import Lesson, UserProgress
+
+
+def calculate_progress(user) -> dict:
+    """Returns a learner's overall progress across published lessons (FR7)."""
+    total = Lesson.query.filter_by(is_published=True).count()
+    if total == 0:
+        return {"completed": 0, "total": 0, "percent": 0}
+
+    completed = (
+        UserProgress.query.filter_by(user_id=user.id, completed=True)
+        .join(Lesson)
+        .filter(Lesson.is_published.is_(True))
+        .count()
+    )
+    return {
+        "completed": completed,
+        "total": total,
+        "percent": round(100 * completed / total),
+    }
+
+
+def grade_quiz(lesson, submitted_answers: dict[str, str]) -> dict:
+    """Grade a quiz submission.
+
+    `submitted_answers` maps str(question_id) -> str(choice_id), the shape
+    Flask's `request.form` naturally gives us for fields named
+    `question-<id>`.
+
+    Returns {"correct_count", "total_questions", "results": [...]} where each
+    result row carries enough for the template to show right/wrong + the
+    correct answer without a second query.
+    """
+    results = []
+    correct_count = 0
+
+    for question in lesson.questions:
+        selected_id = submitted_answers.get(str(question.id))
+        correct_choice = next((c for c in question.choices if c.is_correct), None)
+        is_correct = bool(selected_id) and selected_id.isdigit() and int(selected_id) == (
+            correct_choice.id if correct_choice else None
+        )
+        if is_correct:
+            correct_count += 1
+
+        results.append(
+            {
+                "question": question,
+                "selected_choice_id": int(selected_id) if selected_id and selected_id.isdigit() else None,
+                "correct_choice_id": correct_choice.id if correct_choice else None,
+                "is_correct": is_correct,
+            }
+        )
+
+    return {
+        "correct_count": correct_count,
+        "total_questions": len(lesson.questions),
+        "results": results,
+    }
+
+
+def project_compound_growth(
+    monthly_rwf: float, months: int, annual_rate: float = 0.10
+) -> dict:
+    """What could `monthly_rwf` contributed every month become? (FR8)
+
+    Simple monthly-compounding model: interest accrues on the running
+    balance each month, then that month's contribution is added. This is an
+    illustrative projection, not a guaranteed return â€” the template must
+    make that caveat visible next to the number (NFR3/safety requirement in
+    the SRS), since nothing here is an actual investment product.
+    """
+    monthly_rate = annual_rate / 12
+    balance = 0.0
+    schedule = []
+
+    for month in range(1, months + 1):
+        balance = balance * (1 + monthly_rate) + monthly_rwf
+        schedule.append({"month": month, "balance": round(balance)})
+
+    total_contributed = monthly_rwf * months
+    total_value = round(balance)
+
+    return {
+        "schedule": schedule,
+        "total_contributed": round(total_contributed),
+        "total_value": total_value,
+        "growth": total_value - round(total_contributed),
+        "annual_rate": annual_rate,
+        "months": months,
+        "monthly_rwf": monthly_rwf,
+    }
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\lessons\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("lessons", __name__)
+
+from app.lessons import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\main\routes.py ===
+from flask import render_template
+from flask_login import current_user, login_required
+
+from app.lessons.utils import calculate_progress
+from app.main import bp
+from app.models import Lesson
+
+
+@bp.get("/")
+def index():
+    lesson_count = Lesson.query.filter_by(is_published=True).count()
+    return render_template("main/index.html", lesson_count=lesson_count)
+
+
+@bp.get("/about")
+def about():
+    return render_template("main/about.html")
+
+
+@bp.get("/dashboard")
+@login_required
+def dashboard():
+    progress = calculate_progress(current_user)
+    lessons = Lesson.query.filter_by(is_published=True).order_by(Lesson.order_index).all()
+
+    from app.models import UserProgress
+
+    progress_by_lesson = {
+        row.lesson_id: row
+        for row in UserProgress.query.filter_by(user_id=current_user.id).all()
+    }
+
+    return render_template(
+        "main/dashboard.html",
+        progress=progress,
+        lessons=lessons,
+        progress_by_lesson=progress_by_lesson,
+    )
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\main\__init__.py ===
+from flask import Blueprint
+
+bp = Blueprint("main", __name__)
+
+from app.main import routes  # noqa: E402,F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\institution.py ===
+from datetime import datetime
+
+from app.extensions import db
+
+
+class Institution(db.Model):
+    __tablename__ = "institutions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    url = db.Column(db.String(500), nullable=False)
+    category = db.Column(db.String(100))  # e.g. regulator, exchange, unit_trust, broker
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self) -> str:
+        return f"<Institution {self.name}>"
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\lesson.py ===
+from datetime import datetime
+
+from app.extensions import db
+
+
+class Lesson(db.Model):
+    __tablename__ = "lessons"
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    slug = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    order_index = db.Column(db.Integer, nullable=False, unique=True)
+    content_body = db.Column(db.Text)  # raw markdown, seeded from app/content/lessons/*.md
+    is_published = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+
+    # source_path: which .md file this row was last seeded from â€” makes the
+    # "resync" admin view possible without guessing filenames from titles.
+    source_path = db.Column(db.String(500))
+
+    questions = db.relationship(
+        "Question",
+        back_populates="lesson",
+        cascade="all, delete-orphan",
+        order_by="Question.order_index",
+    )
+    progress_records = db.relationship(
+        "UserProgress", back_populates="lesson", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Lesson {self.slug}>"
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\progress.py ===
+from app.extensions import db
+
+
+class UserProgress(db.Model):
+    __tablename__ = "user_progress"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "lesson_id", name="uq_user_lesson_progress"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    lesson_id = db.Column(
+        db.Integer, db.ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    completed = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Split out instead of a bare quiz_score int, so a score still means
+    # something if the number of questions in a lesson's quiz ever changes.
+    correct_count = db.Column(db.Integer)
+    total_questions = db.Column(db.Integer)
+    completed_at = db.Column(db.DateTime)
+
+    user = db.relationship("User", back_populates="progress")
+    lesson = db.relationship("Lesson", back_populates="progress_records")
+
+    @property
+    def quiz_score_pct(self):
+        if not self.total_questions:
+            return None
+        return round(100 * self.correct_count / self.total_questions)
+
+    def __repr__(self) -> str:
+        return f"<UserProgress user={self.user_id} lesson={self.lesson_id}>"
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\question.py ===
+"""
+Replaces the old quizzes table: a lesson's questions ARE its quiz, so
+Question points straight at Lesson. If you ever need multiple quizzes per
+lesson or per-quiz settings, reintroduce a quizzes table then â€” cheap
+migration, not worth paying for now.
+"""
+from app.extensions import db
+
+
+class Question(db.Model):
+    __tablename__ = "questions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    lesson_id = db.Column(
+        db.Integer, db.ForeignKey("lessons.id", ondelete="CASCADE"), nullable=False
+    )
+    text = db.Column(db.Text, nullable=False)
+    order_index = db.Column(db.Integer)
+
+    lesson = db.relationship("Lesson", back_populates="questions")
+    choices = db.relationship(
+        "Choice", back_populates="question", cascade="all, delete-orphan", order_by="Choice.id"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Question {self.id} lesson={self.lesson_id}>"
+
+
+class Choice(db.Model):
+    __tablename__ = "choices"
+
+    id = db.Column(db.Integer, primary_key=True)
+    question_id = db.Column(
+        db.Integer, db.ForeignKey("questions.id", ondelete="CASCADE"), nullable=False
+    )
+    text = db.Column(db.String(255), nullable=False)
+    is_correct = db.Column(db.Boolean, nullable=False, default=False)
+
+    question = db.relationship("Question", back_populates="choices")
+
+    def __repr__(self) -> str:
+        return f"<Choice {self.id} correct={self.is_correct}>"
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\user.py ===
+import enum
+from datetime import datetime
+
+from flask_login import UserMixin
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from app.extensions import db, login_manager
+
+
+class UserRole(enum.Enum):
+    LEARNER = "learner"
+    ADMIN = "admin"
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.Enum(UserRole), nullable=False, default=UserRole.LEARNER)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    progress = db.relationship(
+        "UserProgress", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    def set_password(self, raw_password: str) -> None:
+        self.password_hash = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        return check_password_hash(self.password_hash, raw_password)
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == UserRole.ADMIN
+
+    def __repr__(self) -> str:
+        return f"<User {self.email}>"
+
+
+@login_manager.user_loader
+def load_user(user_id: str):
+    return User.query.get(int(user_id))
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\models\__init__.py ===
+# Import every model here so Alembic (flask-migrate) can detect them.
+from app.models.user import User, UserRole  # noqa: F401
+from app.models.lesson import Lesson  # noqa: F401
+from app.models.question import Question, Choice  # noqa: F401
+from app.models.progress import UserProgress  # noqa: F401
+from app.models.institution import Institution  # noqa: F401
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\static\js\calculator.js ===
+// Progressive enhancement for /lessons/calculator: updates the numbers and
+// bar chart live as the sliders move, via the JSON API blueprint, instead
+// of a full page reload on every drag. Works without JS too (the <form>
+// submits as a GET and the server renders the same numbers) â€” this file
+// never introduces a feature the server-rendered page lacks.
+
+(function () {
+  const form = document.getElementById("calc-form");
+  if (!form) return;
+
+  const monthlyInput = document.getElementById("monthly_rwf");
+  const monthsInput = document.getElementById("months");
+  const monthlyLabel = document.getElementById("monthly_rwf-value");
+  const monthsLabel = document.getElementById("months-value");
+  const totalContributedEl = document.getElementById("total_contributed");
+  const growthEl = document.getElementById("growth");
+  const totalValueEl = document.getElementById("total_value");
+  const chart = document.getElementById("chart");
+
+  const rwf = (n) => "RWF " + Math.round(n).toLocaleString("en-US");
+
+  let debounceTimer = null;
+
+  function recalculate() {
+    const monthly_rwf = Number(monthlyInput.value);
+    const months = Number(monthsInput.value);
+
+    monthlyLabel.textContent = rwf(monthly_rwf);
+    monthsLabel.textContent = `${months} months (~${(months / 12).toFixed(1)} yrs)`;
+
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/v1/calculator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ monthly_rwf, months }),
+        });
+        if (!res.ok) return; // fall back silently â€” the form still works via GET submit
+        const data = await res.json();
+
+        totalContributedEl.textContent = rwf(data.total_contributed);
+        growthEl.textContent = "+" + rwf(data.growth);
+        totalValueEl.textContent = rwf(data.total_value);
+
+        renderChart(data.schedule);
+      } catch (err) {
+        // Network hiccup â€” the sliders still reflect the new values, and a
+        // normal form submit (or next successful fetch) will catch up.
+      }
+    }, 150);
+  }
+
+  function renderChart(schedule) {
+    if (!schedule.length) return;
+    const maxBalance = schedule[schedule.length - 1].balance || 1;
+    const step = Math.max(1, Math.floor(schedule.length / 24));
+
+    chart.innerHTML = "";
+    schedule.forEach((point, i) => {
+      if (i % step !== 0 && i !== schedule.length - 1) return;
+      const bar = document.createElement("div");
+      bar.className = "flex-1 bg-navy-400 rounded-t";
+      bar.style.height = `${Math.round((point.balance / maxBalance) * 1000) / 10}%`;
+      bar.title = `Month ${point.month}: ${rwf(point.balance)}`;
+      chart.appendChild(bar);
+    });
+  }
+
+  monthlyInput.addEventListener("input", recalculate);
+  monthsInput.addEventListener("input", recalculate);
+})();
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\static\js\quiz.js ===
+// Intentionally unused: quizzes are submitted as a plain HTML form POST to
+// /lessons/<slug>/quiz (see app/lessons/routes.py:submit_quiz), graded
+// server-side, and the result page is server-rendered. That keeps "did my
+// quiz submission actually save?" simple and reliable, with no JS required
+// to complete a lesson. If quiz-taking ever needs a JS-driven experience
+// (instant per-question feedback, no page reload), build it against the
+// existing route â€” it already returns a normal HTML page, so adding a
+// fetch()-based flow here would mean adding a JSON variant of that route
+// too, which isn't worth it for the MVP.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\admin\dashboard.html ===
+{% extends "base.html" %}
+{% block title %}Admin â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Admin</h1>
+  <p class="mt-1 text-sm text-slate-500">Lesson content is authored in <code class="bg-slate-100 px-1 rounded">app/content/lessons/*.md</code> â€” this panel manages publish state, order, and institutions, not lesson text (see ADR-004).</p>
+
+  <div class="mt-8 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Lessons</h2>
+    <form method="post" action="{{ url_for('admin.resync') }}">
+      <button type="submit" class="rounded-md bg-navy-900 text-white text-sm font-medium px-4 py-2 hover:bg-navy-700">
+        Resync from markdown
+      </button>
+    </form>
+  </div>
+
+  <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set sync_row = report | selectattr('slug', 'defined') | selectattr('slug', 'equalto', lesson.slug) | list | first %}
+      <div class="flex items-center justify-between gap-4 px-5 py-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ lesson.order_index }}. {{ lesson.title }}</p>
+          <p class="text-xs text-slate-500">{{ lesson.source_path or 'no source file' }} &middot; {{ lesson.questions|length }} question(s)</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          {% if sync_row and sync_row.is_stale %}
+            <span class="text-xs font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-1">Stale â€” resync</span>
+          {% else %}
+            <span class="text-xs font-medium text-green-700 bg-green-100 rounded-full px-2 py-1">Synced</span>
+          {% endif %}
+          <span class="text-xs font-medium rounded-full px-2 py-1 {{ 'bg-green-100 text-green-700' if lesson.is_published else 'bg-slate-100 text-slate-600' }}">
+            {{ 'Published' if lesson.is_published else 'Draft' }}
+          </span>
+          <form method="post" action="{{ url_for('admin.reorder_lesson', lesson_id=lesson.id, direction='up') }}">
+            <button class="w-7 h-7 rounded border border-slate-300 hover:bg-slate-50" title="Move up" aria-label="Move up">&uarr;</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.reorder_lesson', lesson_id=lesson.id, direction='down') }}">
+            <button class="w-7 h-7 rounded border border-slate-300 hover:bg-slate-50" title="Move down" aria-label="Move down">&darr;</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.toggle_publish', lesson_id=lesson.id) }}">
+            <button class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">
+              {{ 'Unpublish' if lesson.is_published else 'Publish' }}
+            </button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons found. Run <code>flask seed-db</code> or add a file to app/content/lessons/.</p>
+    {% endfor %}
+  </div>
+
+  {% set stale_files = report | selectattr('is_stale', 'defined') | selectattr('is_stale') | list %}
+  {% if stale_files %}
+    <p class="mt-2 text-sm text-amber-700">{{ stale_files|length }} file(s) have changes not yet reflected in the database â€” hit "Resync from markdown" above.</p>
+  {% endif %}
+
+  <div class="mt-10 flex items-center justify-between">
+    <h2 class="text-lg font-semibold">Institutions</h2>
+    <a href="{{ url_for('admin.new_institution') }}" class="rounded-md bg-navy-900 text-white text-sm font-medium px-4 py-2 hover:bg-navy-700">
+      + Add institution
+    </a>
+  </div>
+
+  <div class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for institution in institutions %}
+      <div class="flex items-center justify-between gap-4 px-5 py-4">
+        <div class="min-w-0">
+          <p class="font-medium truncate">{{ institution.name }}</p>
+          <p class="text-xs text-slate-500">{{ institution.category }} &middot; {{ institution.url }}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="{{ url_for('admin.edit_institution', institution_id=institution.id) }}" class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium hover:bg-slate-50">Edit</a>
+          <form method="post" action="{{ url_for('admin.delete_institution', institution_id=institution.id) }}" onsubmit="return confirm('Remove {{ institution.name }}?');">
+            <button class="rounded-md border border-red-200 text-red-700 px-3 py-1.5 text-xs font-medium hover:bg-red-50">Delete</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No institutions yet. Run <code>flask seed-db</code> or add one above.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\admin\institution_form.html ===
+{% extends "base.html" %}
+{% import "macros/forms.html" as f %}
+{% block title %}{{ 'Edit' if institution else 'Add' }} institution â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-10">
+  <a href="{{ url_for('admin.dashboard') }}" class="text-sm text-navy-700 underline">&larr; Admin</a>
+  <h1 class="mt-4 text-2xl font-bold">{{ 'Edit' if institution else 'Add' }} institution</h1>
+
+  <form method="post" class="mt-6">
+    {{ form.hidden_tag() }}
+    {{ f.field(form.name) }}
+    {{ f.field(form.description, rows="3") }}
+    {{ f.field(form.url, placeholder="https://") }}
+    {{ f.field(form.category) }}
+    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5 hover:bg-navy-700">
+      {{ 'Save changes' if institution else 'Add institution' }}
+    </button>
+  </form>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\auth\login.html ===
+{% extends "base.html" %}
+{% import "macros/forms.html" as f %}
+{% block title %}Log in â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-2xl font-bold">Welcome back</h1>
+
+  <form method="post" class="mt-6">
+    {{ form.hidden_tag() }}
+    {{ f.field(form.email) }}
+    {{ f.field(form.password) }}
+    {{ f.checkbox(form.remember_me) }}
+    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5 hover:bg-navy-700">
+      Log in
+    </button>
+  </form>
+
+  <p class="mt-4 text-sm text-slate-500">
+    New here? <a href="{{ url_for('auth.register') }}" class="text-navy-700 font-medium underline">Create an account</a>
+  </p>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\auth\profile.html ===
+{% extends "base.html" %}
+{% block title %}Your profile â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-2xl font-bold">Your profile</h1>
+
+  <dl class="mt-6 divide-y divide-slate-200 border border-slate-200 rounded-lg bg-white">
+    <div class="flex justify-between px-5 py-3">
+      <dt class="text-slate-500 text-sm">Email</dt>
+      <dd class="text-sm font-medium">{{ current_user.email }}</dd>
+    </div>
+    <div class="flex justify-between px-5 py-3">
+      <dt class="text-slate-500 text-sm">Role</dt>
+      <dd class="text-sm font-medium capitalize">{{ current_user.role.value }}</dd>
+    </div>
+    <div class="flex justify-between px-5 py-3">
+      <dt class="text-slate-500 text-sm">Member since</dt>
+      <dd class="text-sm font-medium">{{ current_user.created_at.strftime('%B %Y') if current_user.created_at else 'â€”' }}</dd>
+    </div>
+    <div class="flex justify-between px-5 py-3">
+      <dt class="text-slate-500 text-sm">Lessons completed</dt>
+      <dd class="text-sm font-medium">{{ progress.completed }} / {{ progress.total }}</dd>
+    </div>
+  </dl>
+
+  <a href="{{ url_for('main.dashboard') }}" class="mt-6 inline-block text-sm text-navy-700 font-medium underline">Back to dashboard</a>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\auth\register.html ===
+{% extends "base.html" %}
+{% import "macros/forms.html" as f %}
+{% block title %}Sign up â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-2xl font-bold">Create your account</h1>
+  <p class="mt-1 text-sm text-slate-500">It's free â€” Tera only needs an email so your lesson progress is saved.</p>
+
+  <form method="post" class="mt-6">
+    {{ form.hidden_tag() }}
+    {{ f.field(form.email) }}
+    {{ f.field(form.password) }}
+    {{ f.field(form.confirm_password) }}
+    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5 hover:bg-navy-700">
+      Create account
+    </button>
+  </form>
+
+  <p class="mt-4 text-sm text-slate-500">
+    Already have an account? <a href="{{ url_for('auth.login') }}" class="text-navy-700 font-medium underline">Log in</a>
+  </p>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\errors\403.html ===
+{% extends "base.html" %}
+{% block title %}Access denied â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-24 text-center">
+  <p class="text-6xl font-bold text-navy-200">403</p>
+  <h1 class="mt-4 text-xl font-semibold">You don't have access to that page</h1>
+  <p class="mt-2 text-sm text-slate-500">This area is restricted to admins.</p>
+  <a href="{{ url_for('main.index') }}" class="mt-6 inline-block rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">Back to Tera</a>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\errors\404.html ===
+{% extends "base.html" %}
+{% block title %}Page not found â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-24 text-center">
+  <p class="text-6xl font-bold text-navy-200">404</p>
+  <h1 class="mt-4 text-xl font-semibold">We couldn't find that page</h1>
+  <p class="mt-2 text-sm text-slate-500">It may have been moved, unpublished, or never existed.</p>
+  <a href="{{ url_for('main.index') }}" class="mt-6 inline-block rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">Back to Tera</a>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\errors\500.html ===
+{% extends "base.html" %}
+{% block title %}Something went wrong â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-24 text-center">
+  <p class="text-6xl font-bold text-navy-200">500</p>
+  <h1 class="mt-4 text-xl font-semibold">Something went wrong on our end</h1>
+  <p class="mt-2 text-sm text-slate-500">Nothing you did caused this â€” try again in a moment.</p>
+  <a href="{{ url_for('main.index') }}" class="mt-6 inline-block rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">Back to Tera</a>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\institutions\detail.html ===
+{% extends "base.html" %}
+{% block title %}{{ institution.name }} â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <a href="{{ url_for('institutions.directory') }}" class="text-sm text-navy-700 underline">&larr; All institutions</a>
+
+  <h1 class="mt-4 text-2xl font-bold">{{ institution.name }}</h1>
+  <span class="inline-block mt-2 text-xs font-medium uppercase tracking-wide text-navy-700 bg-navy-50 rounded-full px-2 py-1">
+    {{ institution.category|replace('_', ' ')|title }}
+  </span>
+
+  {% if institution.description %}
+    <p class="mt-4 text-slate-700 leading-relaxed">{{ institution.description }}</p>
+  {% endif %}
+
+  <a href="{{ institution.url }}" target="_blank" rel="noopener noreferrer"
+     class="mt-6 inline-flex items-center gap-2 rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">
+    Visit {{ institution.name }} &rarr;
+  </a>
+
+  <p class="mt-4 text-xs text-slate-400">Tera is not affiliated with {{ institution.name }}. Always confirm licensing and current terms directly on their site before sending any money.</p>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\institutions\directory.html ===
+{% extends "base.html" %}
+{% block title %}Where to invest â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Where to actually invest</h1>
+  <p class="mt-1 text-slate-600">These are real, licensed Rwandan institutions â€” Tera doesn't hold your money or execute trades. This is the hand-off.</p>
+
+  <div class="mt-6 flex flex-wrap gap-2">
+    <a href="{{ url_for('institutions.directory') }}"
+       class="rounded-full px-3 py-1.5 text-sm font-medium {{ 'bg-navy-900 text-white' if not active_category else 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+      All
+    </a>
+    {% for key, label in categories.items() %}
+      <a href="{{ url_for('institutions.directory', category=key) }}"
+         class="rounded-full px-3 py-1.5 text-sm font-medium {{ 'bg-navy-900 text-white' if active_category == key else 'bg-slate-100 text-slate-700 hover:bg-slate-200' }}">
+        {{ label }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="mt-6 grid gap-4">
+    {% for institution in institutions %}
+      <a href="{{ url_for('institutions.detail', institution_id=institution.id) }}" class="block rounded-lg border border-slate-200 bg-white p-5 hover:border-navy-300">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">{{ institution.name }}</h2>
+          <span class="text-xs font-medium uppercase tracking-wide text-navy-700 bg-navy-50 rounded-full px-2 py-1">{{ categories.get(institution.category, institution.category) }}</span>
+        </div>
+        {% if institution.description %}
+          <p class="mt-2 text-sm text-slate-600">{{ institution.description }}</p>
+        {% endif %}
+      </a>
+    {% else %}
+      <p class="text-sm text-slate-500">No institutions listed yet.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\lessons\calculator.html ===
+{% extends "base.html" %}
+{% block title %}Calculator â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">What could it become?</h1>
+  <p class="mt-1 text-slate-600 text-sm">A rough projection, not a promise â€” real returns vary and nothing here is a guarantee from any institution.</p>
+
+  <form method="get" id="calc-form" class="mt-6 rounded-lg border border-slate-200 bg-white p-5 space-y-5">
+    <div>
+      <div class="flex justify-between text-sm font-medium">
+        <label for="monthly_rwf">Monthly contribution</label>
+        <span id="monthly_rwf-value">RWF {{ "{:,}".format(projection.monthly_rwf) }}</span>
+      </div>
+      <input type="range" id="monthly_rwf" name="monthly_rwf" min="500" max="100000" step="500"
+             value="{{ projection.monthly_rwf }}" class="w-full mt-2 accent-navy-700">
+    </div>
+
+    <div>
+      <div class="flex justify-between text-sm font-medium">
+        <label for="months">Time horizon</label>
+        <span id="months-value">{{ projection.months }} months (~{{ (projection.months / 12) | round(1) }} yrs)</span>
+      </div>
+      <input type="range" id="months" name="months" min="6" max="240" step="6"
+             value="{{ projection.months }}" class="w-full mt-2 accent-navy-700">
+    </div>
+
+    <p class="text-xs text-slate-400">Assumes a {{ (projection.annual_rate * 100) | round(0) | int }}% annual return, compounded monthly â€” a simplified illustration, not tied to any specific product.</p>
+
+    <noscript>
+      <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5">Recalculate</button>
+    </noscript>
+  </form>
+
+  <div class="mt-6 grid grid-cols-3 gap-3 text-center">
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <p class="text-xs text-slate-500">You put in</p>
+      <p id="total_contributed" class="mt-1 font-bold text-lg">RWF {{ "{:,}".format(projection.total_contributed) }}</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 bg-white p-4">
+      <p class="text-xs text-slate-500">Growth</p>
+      <p id="growth" class="mt-1 font-bold text-lg text-green-700">+RWF {{ "{:,}".format(projection.growth) }}</p>
+    </div>
+    <div class="rounded-lg border border-navy-200 bg-navy-50 p-4">
+      <p class="text-xs text-navy-700">Projected total</p>
+      <p id="total_value" class="mt-1 font-bold text-lg text-navy-900">RWF {{ "{:,}".format(projection.total_value) }}</p>
+    </div>
+  </div>
+
+  <div id="chart" class="mt-6 flex items-end gap-1 h-32 rounded-lg border border-slate-200 bg-white p-4">
+    {# guard against a 0 RWF/month projection: schedule exists but every
+       balance is 0, which would otherwise divide by zero below #}
+    {% set max_balance = (projection.schedule[-1].balance if projection.schedule else 0) or 1 %}
+    {% for point in projection.schedule %}
+      {% if loop.index % (projection.schedule|length // 24 + 1) == 0 or loop.last %}
+        <div class="flex-1 bg-navy-400 rounded-t" style="height: {{ (point.balance / max_balance * 100) | round(1) }}%" title="Month {{ point.month }}: RWF {{ '{:,}'.format(point.balance) }}"></div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Back to lessons</a>
+    <a href="{{ url_for('institutions.directory') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-semibold hover:bg-navy-700">Where to actually invest</a>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/calculator.js') }}" defer></script>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\lessons\detail.html ===
+{% extends "base.html" %}
+{% block title %}{{ lesson.title }} â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+  <a href="{{ url_for('lessons.list_lessons') }}" class="text-sm text-navy-700 underline">&larr; All lessons</a>
+
+  {% if not lesson.is_published %}
+    <div class="mt-4 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-2">
+      Draft â€” only visible to admins. Flip "Published" in the admin panel once this is fact-checked.
+    </div>
+  {% endif %}
+
+  <h1 class="mt-4 text-3xl font-bold">{{ lesson.title }}</h1>
+
+  <article class="prose prose-slate max-w-none mt-6">
+    {{ lesson.content_body | render_markdown | safe }}
+  </article>
+
+  <div class="mt-10 pt-6 border-t border-slate-200">
+    {% if progress and progress.completed %}
+      <p class="text-green-700 font-medium">You scored {{ progress.quiz_score_pct }}% on this lesson's quiz.</p>
+      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Retake quiz</a>
+    {% elif lesson.questions %}
+      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="inline-block rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">Take the quiz</a>
+    {% else %}
+      <p class="text-sm text-slate-500">No quiz for this lesson yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\lessons\list.html ===
+{% extends "base.html" %}
+{% block title %}Lessons â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Lessons</h1>
+  <p class="mt-1 text-slate-600">Work through these in order â€” each one builds on the last.</p>
+
+  <div class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set p = progress_by_lesson.get(lesson.id) %}
+      <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="flex items-center gap-4 px-5 py-4 hover:bg-slate-50">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0
+          {{ 'bg-green-100 text-green-700' if p and p.completed else 'bg-navy-100 text-navy-700' }}">
+          {{ loop.index }}
+        </div>
+        <div class="flex-1">
+          <p class="font-medium">{{ lesson.title }}</p>
+          {% if p and p.completed %}
+            <p class="text-sm text-green-700">Completed â€” scored {{ p.quiz_score_pct }}%</p>
+          {% else %}
+            <p class="text-sm text-slate-500">{{ lesson.questions|length }} quiz question{{ 's' if lesson.questions|length != 1 else '' }}</p>
+          {% endif %}
+        </div>
+        {% if p and p.completed %}
+          <span class="text-green-600" aria-hidden="true">âœ“</span>
+        {% endif %}
+      </a>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons published yet â€” check back soon.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\lessons\quiz.html ===
+{% extends "base.html" %}
+{% block title %}Quiz: {{ lesson.title }} â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="text-sm text-navy-700 underline">&larr; Back to lesson</a>
+  <h1 class="mt-4 text-2xl font-bold">Quiz: {{ lesson.title }}</h1>
+  <p class="mt-1 text-sm text-slate-500">{{ lesson.questions|length }} question{{ 's' if lesson.questions|length != 1 else '' }}. Retaking overwrites your previous score.</p>
+
+  <form method="post" action="{{ url_for('lessons.submit_quiz', slug=lesson.slug) }}" class="mt-6 space-y-6">
+    {% for question in lesson.questions %}
+      <fieldset class="rounded-lg border border-slate-200 bg-white p-5">
+        <legend class="font-medium px-1">{{ loop.index }}. {{ question.text }}</legend>
+        <div class="mt-3 space-y-2">
+          {% for choice in question.choices %}
+            <label class="flex items-center gap-2 text-sm rounded-md border border-slate-200 px-3 py-2 hover:bg-slate-50 cursor-pointer has-[:checked]:border-navy-400 has-[:checked]:bg-navy-50">
+              <input type="radio" name="question-{{ question.id }}" value="{{ choice.id }}" required class="text-navy-700 focus:ring-navy-400">
+              {{ choice.text }}
+            </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endfor %}
+
+    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-3 hover:bg-navy-700">
+      Submit quiz
+    </button>
+  </form>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\lessons\result.html ===
+{% extends "base.html" %}
+{% block title %}Quiz result: {{ lesson.title }} â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <div class="rounded-lg border p-6 text-center
+    {{ 'border-green-200 bg-green-50' if progress.quiz_score_pct >= 70 else 'border-amber-200 bg-amber-50' }}">
+    <p class="text-sm uppercase tracking-wide text-slate-500 font-semibold">Your score</p>
+    <p class="mt-1 text-4xl font-bold">{{ result.correct_count }} / {{ result.total_questions }}</p>
+    <p class="mt-1 text-lg font-medium">{{ progress.quiz_score_pct }}%</p>
+    {% if progress.quiz_score_pct >= 70 %}
+      <p class="mt-2 text-green-700 text-sm">Solid â€” you've got this one down.</p>
+    {% else %}
+      <p class="mt-2 text-amber-700 text-sm">Worth a re-read before you move on.</p>
+    {% endif %}
+  </div>
+
+  <h2 class="mt-8 font-semibold">Review</h2>
+  <div class="mt-3 space-y-4">
+    {% for row in result.results %}
+      <div class="rounded-lg border p-4 {{ 'border-green-200' if row.is_correct else 'border-red-200' }}">
+        <p class="font-medium">{{ loop.index }}. {{ row.question.text }}</p>
+        <ul class="mt-2 space-y-1 text-sm">
+          {% for choice in row.question.choices %}
+            <li class="flex items-center gap-2
+              {{ 'text-green-700 font-medium' if choice.id == row.correct_choice_id else '' }}
+              {{ 'text-red-700' if choice.id == row.selected_choice_id and not row.is_correct else '' }}">
+              {% if choice.id == row.correct_choice_id %}âœ“{% elif choice.id == row.selected_choice_id %}âœ—{% else %}&nbsp;&nbsp;{% endif %}
+              {{ choice.text }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-semibold hover:bg-navy-700">Next lesson</a>
+    <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Retake quiz</a>
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\macros\forms.html ===
+{% macro field(f) %}
+  {# Jinja macros can't declare **kwargs in their signature (unlike Python) â€”
+     `kwargs` is already implicitly populated with any extra keyword args
+     the caller passes, e.g. {{ f.field(form.description, rows="3") }}. #}
+  <div class="mb-4">
+    <label for="{{ f.id }}" class="block text-sm font-medium text-slate-700 mb-1">{{ f.label.text }}</label>
+    {{ f(class_="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-400 focus:border-navy-400" ~ (" border-red-400" if f.errors else ""), **kwargs) }}
+    {% if f.errors %}
+      <ul class="mt-1 text-sm text-red-600">
+        {% for error in f.errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{% macro checkbox(f) %}
+  <div class="mb-4 flex items-center gap-2">
+    {{ f(class_="rounded border-slate-300 text-navy-700 focus:ring-navy-400") }}
+    <label for="{{ f.id }}" class="text-sm text-slate-700">{{ f.label.text }}</label>
+  </div>
+{% endmacro %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\macros\quiz.html ===
+{# Not used: templates/lessons/quiz.html and result.html render questions
+   directly since each needs different markup (input vs. correct/incorrect
+   styling) and there was only one real use of a shared macro to justify.
+   Extract one here if a third quiz-rendering context shows up. #}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\main\about.html ===
+{% extends "base.html" %}
+{% block title %}About Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-3xl font-bold">About Tera</h1>
+
+  <p class="mt-6 text-slate-700 leading-relaxed">
+    Tera exists to close one specific gap: most freely available investing education assumes you're in the US or UK â€” foreign currencies, foreign brokers, foreign minimums. A young Rwandan researching "how to start investing" has to do a lot of extra translation work before any of it is actually actionable.
+  </p>
+  <p class="mt-4 text-slate-700 leading-relaxed">
+    Tera teaches the basics in RWF, references mobile money as the payment method most Rwandans already use daily, and names real local institutions and thresholds instead of generic international ones.
+  </p>
+
+  <div class="mt-8 rounded-lg border border-gold-200 bg-gold-50 p-5">
+    <h2 class="font-semibold text-navy-900">What Tera is not</h2>
+    <ul class="mt-2 space-y-1 text-sm text-slate-700 list-disc list-inside">
+      <li>Not a broker â€” we never hold funds or execute trades.</li>
+      <li>Not personalized financial advice â€” lessons are educational, not a recommendation for your specific situation.</li>
+      <li>Not affiliated with the CMA, RSE, or RNIT â€” we link to them as independent, publicly verifiable sources.</li>
+    </ul>
+  </div>
+
+  <h2 class="mt-10 text-xl font-semibold">The funnel model</h2>
+  <p class="mt-3 text-slate-700 leading-relaxed">
+    Once you've worked through the lessons and feel ready, Tera's job is done â€” we send you to the <a href="{{ url_for('institutions.directory') }}" class="text-navy-700 underline font-medium">real, licensed institutions</a> to actually open an account and invest. We'd rather be a good on-ramp than a mediocre bank.
+  </p>
+
+  <h2 class="mt-10 text-xl font-semibold">A student project</h2>
+  <p class="mt-3 text-slate-700 leading-relaxed">
+    Tera is a project built for an ALU software engineering course. It's a genuine attempt at a real problem, built at a scope one developer can responsibly ship and maintain.
+  </p>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\main\dashboard.html ===
+{% extends "base.html" %}
+{% block title %}Your dashboard â€” Tera{% endblock %}
+{% block content %}
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Welcome back, {{ current_user.email.split('@')[0] }}</h1>
+
+  <div class="mt-6 rounded-lg border border-slate-200 p-5 bg-white">
+    <div class="flex items-center justify-between mb-2">
+      <p class="font-medium text-slate-700">Overall progress</p>
+      <p class="text-sm text-slate-500">{{ progress.completed }} / {{ progress.total }} lessons</p>
+    </div>
+    <div class="w-full bg-slate-100 rounded-full h-3">
+      <div class="bg-navy-700 h-3 rounded-full transition-all" style="width: {{ progress.percent }}%"></div>
+    </div>
+    <p class="mt-2 text-sm text-slate-500">{{ progress.percent }}% complete</p>
+  </div>
+
+  <h2 class="mt-10 text-lg font-semibold">Lessons</h2>
+  <div class="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set p = progress_by_lesson.get(lesson.id) %}
+      <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
+        <div>
+          <p class="font-medium">{{ lesson.title }}</p>
+          {% if p and p.completed %}
+            <p class="text-sm text-green-700">Completed â€” scored {{ p.quiz_score_pct }}%</p>
+          {% else %}
+            <p class="text-sm text-slate-500">Not started yet</p>
+          {% endif %}
+        </div>
+        {% if p and p.completed %}
+          <span class="text-green-600 text-xl" aria-hidden="true">âœ“</span>
+        {% else %}
+          <span class="text-slate-300 text-xl" aria-hidden="true">â†’</span>
+        {% endif %}
+      </a>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons published yet â€” check back soon.</p>
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-medium hover:bg-navy-700">Try the calculator</a>
+    <a href="{{ url_for('institutions.directory') }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Where to actually invest</a>
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\main\index.html ===
+{% extends "base.html" %}
+{% block title %}Tera â€” Investing basics, in RWF terms{% endblock %}
+{% block content %}
+<section class="bg-navy-900 text-white">
+  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 grid sm:grid-cols-2 gap-10 items-center">
+    <div>
+      <h1 class="text-3xl sm:text-4xl font-bold leading-tight">
+        Investing in Rwanda isn't the "someday" thing you think it is.
+      </h1>
+      <p class="mt-4 text-navy-100 text-lg">
+        Most investing content online assumes you're in New York or London. Tera teaches the basics in RWF â€” real local thresholds, real mobile-money habits â€” then points you to the licensed institutions to actually start.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-gold-400 text-navy-900 font-semibold px-5 py-3 hover:bg-gold-300">Start learning</a>
+        <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-white/10 px-5 py-3 font-medium hover:bg-white/20">Try the calculator</a>
+      </div>
+    </div>
+    <div class="bg-white/5 border border-white/10 rounded-xl p-6">
+      <p class="text-sm uppercase tracking-wide text-gold-300 font-semibold">Did you know?</p>
+      <p class="mt-2 text-lg">You can start investing in Rwanda's RNIT Iterambere Fund with as little as <span class="font-bold text-gold-300">RWF 2,000</span>.</p>
+      <p class="mt-4 text-sm text-navy-100">Most "how to invest" guides never mention that â€” because they weren't written for Rwanda.</p>
+    </div>
+  </div>
+</section>
+
+<section class="max-w-5xl mx-auto px-4 sm:px-6 py-14">
+  <div class="grid sm:grid-cols-3 gap-6">
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">1</div>
+      <h3 class="mt-3 font-semibold">Learn the basics</h3>
+      <p class="mt-1 text-sm text-slate-600">{{ lesson_count }} short lesson{{ 's' if lesson_count != 1 else '' }}, written for Rwanda â€” RWF amounts, mobile money, local instruments.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">2</div>
+      <h3 class="mt-3 font-semibold">Test yourself</h3>
+      <p class="mt-1 text-sm text-slate-600">A short quiz after each lesson, with your progress tracked on your dashboard.</p>
+    </div>
+    <div class="rounded-lg border border-slate-200 p-5">
+      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">3</div>
+      <h3 class="mt-3 font-semibold">Go invest for real</h3>
+      <p class="mt-1 text-sm text-slate-600">We hand you off to the actual licensed regulator, exchange, and brokers â€” we never hold your money.</p>
+    </div>
+  </div>
+</section>
+{% endblock %}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\templates\base.html ===
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tera â€” Start investing, in RWF terms{% endblock %}</title>
+  <meta name="description" content="Tera teaches Rwandan-specific investing basics, then points you to the real licensed institutions to actually start.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+
+  <nav class="bg-navy-900 text-white">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6">
+      <div class="flex items-center justify-between h-16">
+        <a href="{{ url_for('main.index') }}" class="flex items-center gap-2 font-bold text-xl tracking-tight">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-gold-400"></span>
+          Tera
+        </a>
+
+        <div class="hidden sm:flex items-center gap-6 text-sm font-medium">
+          <a href="{{ url_for('lessons.list_lessons') }}" class="hover:text-gold-300">Lessons</a>
+          <a href="{{ url_for('lessons.calculator') }}" class="hover:text-gold-300">Calculator</a>
+          <a href="{{ url_for('institutions.directory') }}" class="hover:text-gold-300">Where to invest</a>
+          <a href="{{ url_for('main.about') }}" class="hover:text-gold-300">About</a>
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('main.dashboard') }}" class="hover:text-gold-300">Dashboard</a>
+            {% if current_user.is_admin %}
+              <a href="{{ url_for('admin.dashboard') }}" class="hover:text-gold-300">Admin</a>
+            {% endif %}
+            <a href="{{ url_for('auth.logout') }}" class="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/20">Log out</a>
+          {% else %}
+            <a href="{{ url_for('auth.login') }}" class="hover:text-gold-300">Log in</a>
+            <a href="{{ url_for('auth.register') }}" class="rounded-md bg-gold-400 text-navy-900 px-3 py-1.5 font-semibold hover:bg-gold-300">Sign up</a>
+          {% endif %}
+        </div>
+
+        <!-- mobile menu toggle -->
+        <button id="nav-toggle" class="sm:hidden p-2 -mr-2" aria-label="Toggle menu" aria-expanded="false">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="nav-menu" class="hidden sm:hidden pb-4 flex flex-col gap-3 text-sm font-medium">
+        <a href="{{ url_for('lessons.list_lessons') }}" class="hover:text-gold-300">Lessons</a>
+        <a href="{{ url_for('lessons.calculator') }}" class="hover:text-gold-300">Calculator</a>
+        <a href="{{ url_for('institutions.directory') }}" class="hover:text-gold-300">Where to invest</a>
+        <a href="{{ url_for('main.about') }}" class="hover:text-gold-300">About</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('main.dashboard') }}" class="hover:text-gold-300">Dashboard</a>
+          {% if current_user.is_admin %}
+            <a href="{{ url_for('admin.dashboard') }}" class="hover:text-gold-300">Admin</a>
+          {% endif %}
+          <a href="{{ url_for('auth.logout') }}" class="hover:text-gold-300">Log out</a>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="hover:text-gold-300">Log in</a>
+          <a href="{{ url_for('auth.register') }}" class="hover:text-gold-300">Sign up</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <div class="bg-gold-50 border-b border-gold-200 text-navy-900 text-sm">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-2 flex items-start gap-2">
+      <span aria-hidden="true">â„¹ï¸</span>
+      <p>Tera is educational only â€” we don't hold funds, execute trades, or give personalized financial advice. We teach the basics, then point you to <a href="{{ url_for('institutions.directory') }}" class="underline font-medium">real licensed institutions</a> to actually invest.</p>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-4 w-full">
+        {% for category, message in messages %}
+          {% set styles = {
+            'success': 'bg-green-50 text-green-800 border-green-200',
+            'error': 'bg-red-50 text-red-800 border-red-200',
+            'info': 'bg-blue-50 text-blue-800 border-blue-200',
+          } %}
+          <div class="rounded-md border px-4 py-3 mb-3 text-sm {{ styles.get(category, styles['info']) }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="flex-1 w-full">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="bg-navy-900 text-white/70 text-sm mt-16">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 flex flex-col sm:flex-row justify-between gap-4">
+      <p>&copy; {{ current_year }} Tera. An ALU student project â€” not a licensed financial institution.</p>
+      <div class="flex gap-4">
+        <a href="{{ url_for('main.about') }}" class="hover:text-white">About</a>
+        <a href="{{ url_for('institutions.directory') }}" class="hover:text-white">Where to invest</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('nav-toggle')?.addEventListener('click', () => {
+      const menu = document.getElementById('nav-menu');
+      const btn = document.getElementById('nav-toggle');
+      const isHidden = menu.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', String(!isHidden));
+    });
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\commands.py ===
+"""
+CLI commands, plus the seeding/sync-check logic the admin panel reuses.
+
+`flask seed-db` (and the admin "Resync" button, which calls the same
+`seed_all()`) make app/content/lessons/*.md the single source of truth for
+lesson + quiz content. Upserts by `slug`, so re-running it after editing a
+.md file updates the matching DB row instead of creating a duplicate. The
+admin panel is NOT expected to edit content_body directly â€” see
+ai-context/08-decisions.md (ADR-004) for why, and app/admin/routes.py for
+what the admin panel does instead.
+"""
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import click
+import yaml
+from flask.cli import with_appcontext
+
+CONTENT_DIR = Path(__file__).parent / "content" / "lessons"
+
+QUESTION_RE = re.compile(r"^\d+\.\s+(?P<question>.+)$")
+CHOICE_RE = re.compile(r"^\s*-\s*\[(?P<mark>[ xX])\]\s*(?P<choice>.+)$")
+
+
+def _parse_lesson_file(path: Path) -> tuple[dict, str, list[dict]]:
+    """
+    Returns (frontmatter_dict, content_markdown, questions) where questions is
+    [{"text": ..., "order_index": ..., "choices": [{"text": ..., "is_correct": bool}, ...]}]
+
+    Expects the format in app/content/lessons/_TEMPLATE.md:
+    ---
+    slug: what-is-investing
+    order: 1
+    title: "..."
+    is_published: false
+    objective: "..."
+    sources:
+      - "..."
+    ---
+    ## Content
+    ...
+    ## Quiz
+    1. Question?
+       - [ ] wrong
+       - [x] right
+    """
+    raw = path.read_text(encoding="utf-8")
+    if not raw.startswith("---"):
+        raise ValueError(f"{path.name}: missing YAML frontmatter (must start with '---')")
+
+    _, fm_raw, body = raw.split("---", 2)
+    meta = yaml.safe_load(fm_raw) or {}
+
+    for required in ("slug", "order", "title"):
+        if required not in meta:
+            raise ValueError(f"{path.name}: frontmatter missing required field '{required}'")
+
+    content_match = re.search(r"##\s*Content\s*\n(.*?)(?=\n##\s*Quiz|\Z)", body, re.S)
+    quiz_match = re.search(r"##\s*Quiz\s*\n(.*)", body, re.S)
+
+    content_md = content_match.group(1).strip() if content_match else body.strip()
+    questions: list[dict] = []
+
+    if quiz_match:
+        current = None
+        order_index = 0
+        for line in quiz_match.group(1).splitlines():
+            q = QUESTION_RE.match(line)
+            c = CHOICE_RE.match(line)
+            if q:
+                order_index += 1
+                current = {"text": q.group("question").strip(), "order_index": order_index, "choices": []}
+                questions.append(current)
+            elif c and current is not None:
+                current["choices"].append(
+                    {
+                        "text": c.group("choice").strip(),
+                        "is_correct": c.group("mark").lower() == "x",
+                    }
+                )
+
+    return meta, content_md, questions
+
+
+def _lesson_files() -> list[Path]:
+    return sorted(f for f in CONTENT_DIR.glob("*.md") if not f.name.startswith("_"))
+
+
+def _lesson_differs(lesson, meta, content_md, questions) -> bool:
+    """True if the DB row would change if we seeded this file right now â€”
+    powers the admin "needs resync" indicator without duplicating a hash
+    column that could itself go stale."""
+    if lesson is None:
+        return True
+    if lesson.title != meta["title"]:
+        return True
+    if lesson.order_index != meta["order"]:
+        return True
+    if (lesson.content_body or "").strip() != content_md.strip():
+        return True
+    if len(lesson.questions) != len(questions):
+        return True
+    for existing_q, new_q in zip(lesson.questions, questions):
+        if existing_q.text.strip() != new_q["text"].strip():
+            return True
+        if len(existing_q.choices) != len(new_q["choices"]):
+            return True
+        for existing_c, new_c in zip(existing_q.choices, new_q["choices"]):
+            if existing_c.text.strip() != new_c["text"].strip() or existing_c.is_correct != new_c["is_correct"]:
+                return True
+    return False
+
+
+def sync_report() -> list[dict]:
+    """One row per .md file for the admin dashboard: does the DB match the
+    file right now, or does someone need to hit "Resync"?"""
+    from app.models import Lesson
+
+    report = []
+    for path in _lesson_files():
+        try:
+            meta, content_md, questions = _parse_lesson_file(path)
+        except ValueError as exc:
+            report.append({"path": path.name, "error": str(exc)})
+            continue
+
+        lesson = Lesson.query.filter_by(slug=meta["slug"]).first()
+        report.append(
+            {
+                "path": path.name,
+                "slug": meta["slug"],
+                "title": meta["title"],
+                "lesson": lesson,
+                "is_stale": _lesson_differs(lesson, meta, content_md, questions),
+                "question_count": len(questions),
+            }
+        )
+    return report
+
+
+def seed_all() -> int:
+    """Upsert Lesson/Question/Choice rows from app/content/lessons/*.md by
+    slug. Returns the number of files processed. Shared by `flask seed-db`
+    and the admin panel's "Resync" button (app/admin/routes.py)."""
+    from app.extensions import db
+    from app.models import Choice, Lesson, Question
+
+    files = _lesson_files()
+    parsed = []  # [(lesson, meta, content_md, questions, source_path), ...]
+
+    for path in files:
+        try:
+            meta, content_md, questions = _parse_lesson_file(path)
+        except ValueError:
+            continue  # already surfaced via sync_report()/CLI error output
+
+        lesson = Lesson.query.filter_by(slug=meta["slug"]).first()
+        if lesson is None:
+            lesson = Lesson(slug=meta["slug"])
+            db.session.add(lesson)
+        source_path = str(path.relative_to(CONTENT_DIR.parent.parent.parent))
+        parsed.append((lesson, meta, content_md, questions, source_path))
+
+    # order_index is UNIQUE, and the admin panel's reorder control (see
+    # app/admin/routes.py) can leave the DB's current values out of sync
+    # with each file's `order:` frontmatter â€” e.g. an admin moved lesson A
+    # above lesson B without touching their .md files. Writing the files'
+    # target order_index values directly, one lesson at a time, then
+    # collides with whatever the *next* lesson in the loop still holds,
+    # because SQLAlchemy autoflushes the pending UPDATE as soon as the next
+    # iteration's `Lesson.query.filter_by(...)` runs.
+    #
+    # Fix: stage every touched lesson onto a disjoint negative placeholder
+    # first (can't collide with any real value or each other) and flush
+    # that as its own step, then apply the real target values in a second
+    # pass. Markdown stays authoritative â€” this only changes the order in
+    # which writes land, not which values win.
+    for i, (lesson, *_rest) in enumerate(parsed, start=1):
+        lesson.order_index = -i
+    db.session.flush()
+
+    for lesson, meta, content_md, questions, source_path in parsed:
+        lesson.title = meta["title"]
+        lesson.order_index = meta["order"]
+        lesson.content_body = content_md
+        lesson.is_published = bool(meta.get("is_published", False))
+        lesson.source_path = source_path
+
+        # Replace questions/choices wholesale on every seed â€” simplest
+        # correct behavior given markdown is authoritative; fine at this
+        # content scale.
+        lesson.questions = [
+            Question(
+                text=q["text"],
+                order_index=q["order_index"],
+                choices=[Choice(text=c["text"], is_correct=c["is_correct"]) for c in q["choices"]],
+            )
+            for q in questions
+        ]
+
+    db.session.commit()
+    return len(parsed)
+
+
+def seed_institutions() -> int:
+    """Upsert Institution rows from app/content/institutions.yaml, matched
+    by `name`. Institutions are NOT authored in the admin panel's Lesson
+    sense â€” see ADR-004 â€” but seeding from a checked-in file still beats
+    typing them into the DB by hand for the initial set; the admin CRUD
+    form (app/admin/forms.py) is for day-to-day edits after that."""
+    from app.extensions import db
+    from app.models import Institution
+
+    path = Path(__file__).parent / "content" / "institutions.yaml"
+    if not path.exists():
+        return 0
+
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or []
+    count = 0
+    for row in data:
+        inst = Institution.query.filter_by(name=row["name"]).first()
+        if inst is None:
+            inst = Institution(name=row["name"])
+            db.session.add(inst)
+        inst.description = row.get("description", "")
+        inst.url = row["url"]
+        inst.category = row.get("category")
+        count += 1
+
+    db.session.commit()
+    return count
+
+
+@click.command("seed-db")
+@with_appcontext
+def seed_db_command():
+    """Upsert lessons (from markdown) and institutions (from yaml)."""
+    n_lessons = seed_all()
+    click.echo(f"Seeded {n_lessons} lesson file(s) from {CONTENT_DIR}.")
+    n_inst = seed_institutions()
+    click.echo(f"Seeded {n_inst} institution(s).")
+
+
+@click.command("create-admin")
+@click.option("--email", prompt=True)
+@click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
+@with_appcontext
+def create_admin_command(email, password):
+    """Create (or promote) a user as admin â€” the one piece of setup there's
+    no self-serve UI for on purpose, since anyone could otherwise register
+    their way into the admin panel."""
+    from app.extensions import db
+    from app.models import User, UserRole
+
+    user = User.query.filter_by(email=email.lower()).first()
+    if user is None:
+        user = User(email=email.lower(), role=UserRole.ADMIN)
+        user.set_password(password)
+        db.session.add(user)
+        click.echo(f"Created admin user {email}.")
+    else:
+        user.role = UserRole.ADMIN
+        user.set_password(password)
+        click.echo(f"Promoted existing user {email} to admin and reset their password.")
+    db.session.commit()
+
+
+@click.command("reset-progress")
+@with_appcontext
+def reset_progress_command():
+    """Dev convenience only: wipes every UserProgress row so you can retest
+    the quiz/dashboard flow without recreating the whole DB."""
+    from app.extensions import db
+    from app.models import UserProgress
+
+    count = UserProgress.query.delete()
+    db.session.commit()
+    click.echo(f"Deleted {count} progress record(s).")
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\config.py ===
+"""
+Config classes for each environment.
+"""
+import os
+import secrets
+
+from dotenv import load_dotenv
+
+load_dotenv()
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# A dev-only fallback so `flask run` works right after cloning without an
+# .env file. Never relied on in production â€” ProdConfig has no default and
+# will error loudly if SECRET_KEY isn't set in the real environment.
+_DEV_FALLBACK_SECRET = secrets.token_hex(16)
+
+
+class BaseConfig:
+    SECRET_KEY = os.environ.get("SECRET_KEY", _DEV_FALLBACK_SECRET)
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
+
+class DevConfig(BaseConfig):
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        "DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, '..', 'dev.db')}"
+    )
+
+
+class ProdConfig(BaseConfig):
+    """
+    No fallback for SECRET_KEY/DATABASE_URL â€” but read lazily via init_app(),
+    not as class attributes. A class attribute here would be evaluated the
+    moment this module is *imported* (e.g. `from app.config import DevConfig`
+    at the top of app/__init__.py), which would crash DevConfig/TestConfig
+    runs too, since Python imports the whole module regardless of which
+    class is actually used. init_app() only runs when ProdConfig itself is
+    selected, so the loud failure happens exactly when it should: a real
+    deploy missing its env vars, not `flask run` locally.
+    """
+    DEBUG = False
+
+    @classmethod
+    def init_app(cls, app):
+        app.config["SECRET_KEY"] = os.environ["SECRET_KEY"]
+        app.config["SQLALCHEMY_DATABASE_URI"] = os.environ["DATABASE_URL"]
+
+
+class TestConfig(BaseConfig):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    WTF_CSRF_ENABLED = False
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\extensions.py ===
+"""
+Init extensions once here, import this module everywhere else.
+Avoids circular imports between app/__init__.py and blueprints/models.
+"""
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from flask_login import LoginManager
+
+db = SQLAlchemy()
+migrate = Migrate()
+login_manager = LoginManager()
+login_manager.login_view = "auth.login"
+login_manager.login_message_category = "info"
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\utils.py ===
+"""
+Small app-wide helpers that don't belong to one blueprint.
+"""
+from functools import wraps
+
+import markdown as _markdown
+from flask import abort
+from flask_login import current_user
+
+
+def render_markdown(text: str) -> str:
+    """Jinja filter: `{{ lesson.content_body | render_markdown }}`.
+
+    lessons.content_body stores RAW markdown (the single source of truth
+    lives in app/content/lessons/*.md â€” see ai-context/08-decisions.md,
+    ADR-004). We convert to HTML at render time instead of at seed time so
+    the DB never holds a second, driftable copy of the rendered output.
+    """
+    if not text:
+        return ""
+    return _markdown.markdown(text, extensions=["fenced_code", "tables"])
+
+
+def admin_required(view):
+    """Route decorator: 403s anyone who isn't logged in as an admin.
+
+    Use *after* @login_required so an anonymous visitor gets redirected to
+    login first (nicer UX) rather than a bare 403.
+    """
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\app\__init__.py ===
+from datetime import datetime
+
+from flask import Flask, render_template
+
+from app.config import DevConfig
+from app.extensions import db, login_manager, migrate
+
+
+def create_app(config_class=DevConfig):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+    if hasattr(config_class, "init_app"):
+        config_class.init_app(app)
+
+    _init_extensions(app)
+    _register_blueprints(app)
+    _register_cli(app)
+    _register_error_handlers(app)
+    _register_template_helpers(app)
+
+    return app
+
+
+def _init_extensions(app):
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
+
+    # Import models so they're registered with SQLAlchemy/Alembic before
+    # `flask db migrate` runs.
+    from app import models  # noqa: F401
+
+
+def _register_blueprints(app):
+    from app.main import bp as main_bp
+    from app.auth import bp as auth_bp
+    from app.lessons import bp as lessons_bp
+    from app.institutions import bp as institutions_bp
+    from app.admin import bp as admin_bp
+    from app.api import bp as api_bp
+
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(lessons_bp, url_prefix="/lessons")
+    app.register_blueprint(institutions_bp, url_prefix="/institutions")
+    app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(api_bp, url_prefix="/api/v1")
+
+
+def _register_cli(app):
+    from app.commands import create_admin_command, reset_progress_command, seed_db_command
+
+    app.cli.add_command(seed_db_command)
+    app.cli.add_command(create_admin_command)
+    app.cli.add_command(reset_progress_command)
+
+
+def _register_error_handlers(app):
+    @app.errorhandler(403)
+    def forbidden(_error):
+        return render_template("errors/403.html"), 403
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("errors/404.html"), 404
+
+    @app.errorhandler(500)
+    def server_error(_error):
+        db.session.rollback()  # clear any half-committed transaction before rendering
+        return render_template("errors/500.html"), 500
+
+
+def _register_template_helpers(app):
+    from app.utils import render_markdown
+
+    app.jinja_env.filters["render_markdown"] = render_markdown
+
+    @app.context_processor
+    def inject_globals():
+        return {"current_year": datetime.utcnow().year, "app_name": "Tera"}
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\docs\architecture\content-sync-flow.md ===
+# Content Sync Flow
+
+Textual sketch â€” turn this into an actual diagram alongside the ERD once
+you're in your diagramming tool of choice.
+
+```
+app/content/lessons/*.md  (source of truth, git-tracked, cited facts)
+        â”‚
+        â”‚  flask seed-db   (app/commands.py: seed_db_command)
+        â”‚  â€” parses YAML frontmatter + "## Content" / "## Quiz" sections
+        â”‚  â€” upserts by `slug`
+        â–¼
+   lessons / questions / choices tables  (Postgres/SQLite)
+        â”‚
+        â”‚  read-only from here on for content_body
+        â–¼
+   Lesson list / detail / quiz routes  (app/lessons/)
+
+Admin panel (app/admin/) only touches:
+  - lessons.is_published
+  - lessons.order_index
+  - triggers a resync (same logic as `flask seed-db`, from the UI)
+It never writes lessons.content_body, questions.*, or choices.* directly.
+```
+
+## Why this matters for citations
+Every RWF figure or institution name in a lesson traces back to a `sources:`
+entry in that lesson's `.md` frontmatter. Keeping authoring in files (not a
+DB-backed rich text editor) means that trail stays intact in git history â€”
+useful both for your own fact-checking discipline and if a facilitator asks
+where a specific number came from.
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\docs\figma\design-tokens.md ===
+# Design Tokens
+
+TODO: fill in once Figma file exists, then mirror these into tailwind.config.js
+
+## Colors
+- Primary:
+- Secondary:
+- Background:
+- Text:
+
+## Typography
+- Font family:
+- Scale (h1â€“h6, body, small):
+
+## Spacing
+- Base unit:
+- Scale:
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\migrations\versions\f69dd62242cc_initial_schema.py ===
+"""initial schema
+
+Revision ID: f69dd62242cc
+Revises: 
+Create Date: 2026-10-18 20:04:07.155789
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+
+# revision identifiers, used by Alembic.
+revision = 'f69dd62242cc'
+down_revision = None
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.create_table('institutions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('url', sa.String(length=500), nullable=False),
+    sa.Column('category', sa.String(length=100), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('lessons',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('title', sa.String(length=255), nullable=False),
+    sa.Column('slug', sa.String(length=255), nullable=False),
+    sa.Column('order_index', sa.Integer(), nullable=False),
+    sa.Column('content_body', sa.Text(), nullable=True),
+    sa.Column('is_published', sa.Boolean(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.Column('source_path', sa.String(length=500), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('order_index')
+    )
+    with op.batch_alter_table('lessons', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_lessons_slug'), ['slug'], unique=True)
+
+    op.create_table('users',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('password_hash', sa.String(length=255), nullable=False),
+    sa.Column('role', sa.Enum('LEARNER', 'ADMIN', name='userrole'), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_users_email'), ['email'], unique=True)
+
+    op.create_table('questions',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('lesson_id', sa.Integer(), nullable=False),
+    sa.Column('text', sa.Text(), nullable=False),
+    sa.Column('order_index', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('user_progress',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('lesson_id', sa.Integer(), nullable=False),
+    sa.Column('completed', sa.Boolean(), nullable=False),
+    sa.Column('correct_count', sa.Integer(), nullable=True),
+    sa.Column('total_questions', sa.Integer(), nullable=True),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['lesson_id'], ['lessons.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('user_id', 'lesson_id', name='uq_user_lesson_progress')
+    )
+    op.create_table('choices',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('question_id', sa.Integer(), nullable=False),
+    sa.Column('text', sa.String(length=255), nullable=False),
+    sa.Column('is_correct', sa.Boolean(), nullable=False),
+    sa.ForeignKeyConstraint(['question_id'], ['questions.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    # ### end Alembic commands ###
+
+
+def downgrade():
+    # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('choices')
+    op.drop_table('user_progress')
+    op.drop_table('questions')
+    with op.batch_alter_table('users', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_users_email'))
+
+    op.drop_table('users')
+    with op.batch_alter_table('lessons', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_lessons_slug'))
+
+    op.drop_table('lessons')
+    op.drop_table('institutions')
+    # ### end Alembic commands ###
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\migrations\env.py ===
+import logging
+from logging.config import fileConfig
+
+from flask import current_app
+
+from alembic import context
+
+# this is the Alembic Config object, which provides
+# access to the values within the .ini file in use.
+config = context.config
+
+# Interpret the config file for Python logging.
+# This line sets up loggers basically.
+fileConfig(config.config_file_name)
+logger = logging.getLogger('alembic.env')
+
+
+def get_engine():
+    try:
+        # this works with Flask-SQLAlchemy<3 and Alchemical
+        return current_app.extensions['migrate'].db.get_engine()
+    except (TypeError, AttributeError):
+        # this works with Flask-SQLAlchemy>=3
+        return current_app.extensions['migrate'].db.engine
+
+
+def get_engine_url():
+    try:
+        return get_engine().url.render_as_string(hide_password=False).replace(
+            '%', '%%')
+    except AttributeError:
+        return str(get_engine().url).replace('%', '%%')
+
+
+# add your model's MetaData object here
+# for 'autogenerate' support
+# from myapp import mymodel
+# target_metadata = mymodel.Base.metadata
+config.set_main_option('sqlalchemy.url', get_engine_url())
+target_db = current_app.extensions['migrate'].db
+
+# other values from the config, defined by the needs of env.py,
+# can be acquired:
+# my_important_option = config.get_main_option("my_important_option")
+# ... etc.
+
+
+def get_metadata():
+    if hasattr(target_db, 'metadatas'):
+        return target_db.metadatas[None]
+    return target_db.metadata
+
+
+def run_migrations_offline():
+    """Run migrations in 'offline' mode.
+
+    This configures the context with just a URL
+    and not an Engine, though an Engine is acceptable
+    here as well.  By skipping the Engine creation
+    we don't even need a DBAPI to be available.
+
+    Calls to context.execute() here emit the given string to the
+    script output.
+
+    """
+    url = config.get_main_option("sqlalchemy.url")
+    context.configure(
+        url=url, target_metadata=get_metadata(), literal_binds=True
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+def run_migrations_online():
+    """Run migrations in 'online' mode.
+
+    In this scenario we need to create an Engine
+    and associate a connection with the context.
+
+    """
+
+    # this callback is used to prevent an auto-migration from being generated
+    # when there are no changes to the schema
+    # reference: http://alembic.zzzcomputing.com/en/latest/cookbook.html
+    def process_revision_directives(context, revision, directives):
+        if getattr(config.cmd_opts, 'autogenerate', False):
+            script = directives[0]
+            if script.upgrade_ops.is_empty():
+                directives[:] = []
+                logger.info('No changes in schema detected.')
+
+    conf_args = current_app.extensions['migrate'].configure_args
+    if conf_args.get("process_revision_directives") is None:
+        conf_args["process_revision_directives"] = process_revision_directives
+
+    connectable = get_engine()
+
+    with connectable.connect() as connection:
+        context.configure(
+            connection=connection,
+            target_metadata=get_metadata(),
+            **conf_args
+        )
+
+        with context.begin_transaction():
+            context.run_migrations()
+
+
+if context.is_offline_mode():
+    run_migrations_offline()
+else:
+    run_migrations_online()
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_admin\test_admin.py ===
+"""Admin blueprint: FR10 as scoped by ADR-004 â€” publish/reorder/resync for
+lessons (no content_body edit form), full CRUD for institutions."""
+from app.models import Institution, Lesson
+
+
+def _login(client, user):
+    client.post("/auth/login", data={"email": user.email, "password": "correct-password"})
+
+
+def test_dashboard_requires_login(client):
+    resp = client.get("/admin/", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/auth/login" in resp.headers["Location"]
+
+
+def test_dashboard_forbidden_for_non_admin(client, learner):
+    _login(client, learner)
+    resp = client.get("/admin/")
+    assert resp.status_code == 403
+
+
+def test_dashboard_accessible_for_admin(client, admin, published_lesson):
+    _login(client, admin)
+    resp = client.get("/admin/")
+    assert resp.status_code == 200
+    assert published_lesson.title.encode() in resp.data
+
+
+def test_toggle_publish(client, admin, draft_lesson):
+    _login(client, admin)
+    assert draft_lesson.is_published is False
+    client.post(f"/admin/lessons/{draft_lesson.id}/publish", follow_redirects=True)
+    assert Lesson.query.get(draft_lesson.id).is_published is True
+
+
+def test_toggle_publish_forbidden_for_learner(client, learner, draft_lesson):
+    _login(client, learner)
+    resp = client.post(f"/admin/lessons/{draft_lesson.id}/publish")
+    assert resp.status_code == 403
+    assert Lesson.query.get(draft_lesson.id).is_published is False
+
+
+def test_reorder_swaps_order_index(client, admin, db, published_lesson, draft_lesson):
+    _login(client, admin)
+    assert published_lesson.order_index == 1
+    assert draft_lesson.order_index == 2
+
+    client.post(f"/admin/lessons/{draft_lesson.id}/reorder/up", follow_redirects=True)
+
+    db.session.refresh(published_lesson)
+    db.session.refresh(draft_lesson)
+    assert draft_lesson.order_index == 1
+    assert published_lesson.order_index == 2
+
+
+def test_reorder_at_top_is_a_noop(client, admin, published_lesson):
+    _login(client, admin)
+    resp = client.post(
+        f"/admin/lessons/{published_lesson.id}/reorder/up", follow_redirects=True
+    )
+    assert b"already at the top" in resp.data
+
+
+def test_reorder_rejects_invalid_direction(client, admin, published_lesson):
+    _login(client, admin)
+    resp = client.post(
+        f"/admin/lessons/{published_lesson.id}/reorder/sideways", follow_redirects=True
+    )
+    assert b"Invalid reorder direction" in resp.data
+
+
+def test_institution_crud_cycle(client, admin, db):
+    _login(client, admin)
+
+    resp = client.post(
+        "/admin/institutions/new",
+        data={
+            "name": "New Broker",
+            "description": "A test broker.",
+            "url": "https://example.com",
+            "category": "broker",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    inst = Institution.query.filter_by(name="New Broker").first()
+    assert inst is not None
+
+    client.post(
+        f"/admin/institutions/{inst.id}/edit",
+        data={
+            "name": "Renamed Broker",
+            "description": inst.description,
+            "url": inst.url,
+            "category": inst.category,
+        },
+        follow_redirects=True,
+    )
+    assert Institution.query.get(inst.id).name == "Renamed Broker"
+
+    client.post(f"/admin/institutions/{inst.id}/delete", follow_redirects=True)
+    assert Institution.query.get(inst.id) is None
+
+
+def test_institution_crud_forbidden_for_learner(client, learner):
+    _login(client, learner)
+    resp = client.get("/admin/institutions/new")
+    assert resp.status_code == 403
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_admin\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_api\test_api.py ===
+"""API blueprint: POST /api/v1/calculator (used by static/js/calculator.js)."""
+
+
+def test_calculator_api_default_payload(client):
+    resp = client.post("/api/v1/calculator", json={})
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["monthly_rwf"] == 2000
+    assert body["months"] == 24
+    assert len(body["schedule"]) == 24
+
+
+def test_calculator_api_custom_payload(client):
+    resp = client.post(
+        "/api/v1/calculator", json={"monthly_rwf": 5000, "months": 12, "annual_rate": 0.05}
+    )
+    body = resp.get_json()
+    assert body["total_contributed"] == 60000
+    assert body["total_value"] > body["total_contributed"]
+
+
+def test_calculator_api_rejects_out_of_range_months(client):
+    resp = client.post("/api/v1/calculator", json={"months": 1000})
+    assert resp.status_code == 400
+    assert "error" in resp.get_json()
+
+
+def test_calculator_api_rejects_non_numeric(client):
+    resp = client.post("/api/v1/calculator", json={"monthly_rwf": "a lot"})
+    assert resp.status_code == 400
+
+
+def test_calculator_api_rejects_non_object_body(client):
+    resp = client.post("/api/v1/calculator", json=[1, 2, 3])
+    assert resp.status_code == 400
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_api\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_auth\test_auth.py ===
+"""Auth blueprint: register, login, logout (FR1, FR2)."""
+from app.models import User
+
+
+def test_register_creates_user_and_logs_in(client, db):
+    resp = client.post(
+        "/auth/register",
+        data={
+            "email": "new@example.com",
+            "password": "correct-password",
+            "confirm_password": "correct-password",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert User.query.filter_by(email="new@example.com").first() is not None
+    # Dashboard is login_required â€” reaching it with a 200 confirms we're logged in.
+    assert b"Dashboard" in resp.data or resp.request.path == "/dashboard"
+
+
+def test_register_rejects_duplicate_email(client, learner):
+    resp = client.post(
+        "/auth/register",
+        data={
+            "email": learner.email,
+            "password": "another-password",
+            "confirm_password": "another-password",
+        },
+        follow_redirects=True,
+    )
+    assert b"already exists" in resp.data
+
+
+def test_register_rejects_mismatched_passwords(client, db):
+    resp = client.post(
+        "/auth/register",
+        data={
+            "email": "mismatch@example.com",
+            "password": "correct-password",
+            "confirm_password": "different-password",
+        },
+    )
+    assert User.query.filter_by(email="mismatch@example.com").first() is None
+    assert resp.status_code == 200  # re-rendered form, not a redirect
+
+
+def test_login_success(client, learner):
+    resp = client.post(
+        "/auth/login",
+        data={"email": learner.email, "password": "correct-password"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert resp.request.path == "/dashboard"
+
+
+def test_login_wrong_password(client, learner):
+    resp = client.post(
+        "/auth/login",
+        data={"email": learner.email, "password": "wrong-password"},
+        follow_redirects=True,
+    )
+    assert b"Incorrect email or password" in resp.data
+
+
+def test_login_unknown_email(client, db):
+    resp = client.post(
+        "/auth/login",
+        data={"email": "nobody@example.com", "password": "whatever123"},
+        follow_redirects=True,
+    )
+    assert b"Incorrect email or password" in resp.data
+
+
+def test_logout_requires_login(client):
+    resp = client.get("/auth/logout", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/auth/login" in resp.headers["Location"]
+
+
+def test_logout_then_dashboard_redirects_to_login(client, learner):
+    client.post("/auth/login", data={"email": learner.email, "password": "correct-password"})
+    client.get("/auth/logout")
+    resp = client.get("/dashboard", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/auth/login" in resp.headers["Location"]
+
+
+def test_profile_requires_login(client):
+    resp = client.get("/auth/profile", follow_redirects=False)
+    assert resp.status_code == 302
+
+
+def test_profile_shows_progress_for_logged_in_user(client, learner, published_lesson):
+    client.post("/auth/login", data={"email": learner.email, "password": "correct-password"})
+    resp = client.get("/auth/profile")
+    assert resp.status_code == 200
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_auth\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_institutions\test_institutions.py ===
+"""Institutions blueprint: resource directory (FR9)."""
+from app.models import Institution
+
+
+def test_directory_lists_institutions(client, institution):
+    resp = client.get("/institutions/")
+    assert resp.status_code == 200
+    assert institution.name.encode() in resp.data
+
+
+def test_directory_filters_by_category(client, db):
+    reg = Institution(name="Reg Co", url="https://example.com", category="regulator")
+    broker = Institution(name="Broker Co", url="https://example.com", category="broker")
+    db.session.add_all([reg, broker])
+    db.session.commit()
+
+    resp = client.get("/institutions/?category=regulator")
+    assert b"Reg Co" in resp.data
+    assert b"Broker Co" not in resp.data
+
+
+def test_directory_ignores_unknown_category(client, institution):
+    resp = client.get("/institutions/?category=not-a-real-category")
+    assert resp.status_code == 200
+    assert institution.name.encode() in resp.data
+
+
+def test_detail_page(client, institution):
+    resp = client.get(f"/institutions/{institution.id}")
+    assert resp.status_code == 200
+    assert institution.name.encode() in resp.data
+
+
+def test_detail_404_for_unknown_id(client, db):
+    resp = client.get("/institutions/99999")
+    assert resp.status_code == 404
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_institutions\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_lessons\test_lessons.py ===
+"""Lessons blueprint: listing, detail, quiz, grading, progress (FR3-FR8)."""
+from app.models import UserProgress
+
+
+def _login(client, user):
+    client.post("/auth/login", data={"email": user.email, "password": "correct-password"})
+
+
+def test_list_shows_only_published_lessons(client, published_lesson, draft_lesson):
+    resp = client.get("/lessons/")
+    assert published_lesson.title.encode() in resp.data
+    assert draft_lesson.title.encode() not in resp.data
+
+
+def test_detail_visible_for_anonymous(client, published_lesson):
+    resp = client.get(f"/lessons/{published_lesson.slug}")
+    assert resp.status_code == 200
+    assert published_lesson.title.encode() in resp.data
+
+
+def test_detail_renders_markdown(client, published_lesson):
+    resp = client.get(f"/lessons/{published_lesson.slug}")
+    assert b"<strong>" in resp.data  # "**markdown**" in the fixture content
+
+
+def test_draft_lesson_404s_for_anonymous(client, draft_lesson):
+    resp = client.get(f"/lessons/{draft_lesson.slug}")
+    assert resp.status_code == 404
+
+
+def test_draft_lesson_404s_for_logged_in_learner(client, learner, draft_lesson):
+    _login(client, learner)
+    resp = client.get(f"/lessons/{draft_lesson.slug}")
+    assert resp.status_code == 404
+
+
+def test_draft_lesson_visible_to_admin(client, admin, draft_lesson):
+    _login(client, admin)
+    resp = client.get(f"/lessons/{draft_lesson.slug}")
+    assert resp.status_code == 200
+
+
+def test_unknown_slug_404s(client, db):
+    resp = client.get("/lessons/does-not-exist")
+    assert resp.status_code == 404
+
+
+def test_quiz_requires_login(client, published_lesson):
+    resp = client.get(f"/lessons/{published_lesson.slug}/quiz", follow_redirects=False)
+    assert resp.status_code == 302
+
+
+def test_quiz_page_lists_questions(client, learner, published_lesson):
+    _login(client, learner)
+    resp = client.get(f"/lessons/{published_lesson.slug}/quiz")
+    assert resp.status_code == 200
+    for q in published_lesson.questions:
+        assert q.text.encode() in resp.data
+
+
+def test_submit_quiz_grades_and_records_progress(client, learner, published_lesson):
+    _login(client, learner)
+    q1, q2 = published_lesson.questions
+    correct_choice_q1 = next(c for c in q1.choices if c.is_correct)
+    wrong_choice_q2 = next(c for c in q2.choices if not c.is_correct)
+
+    resp = client.post(
+        f"/lessons/{published_lesson.slug}/quiz",
+        data={
+            f"question-{q1.id}": str(correct_choice_q1.id),
+            f"question-{q2.id}": str(wrong_choice_q2.id),
+        },
+    )
+    assert resp.status_code == 200
+    assert b"1 / 2" in resp.data
+
+    progress = UserProgress.query.filter_by(
+        user_id=learner.id, lesson_id=published_lesson.id
+    ).first()
+    assert progress is not None
+    assert progress.completed is True
+    assert progress.correct_count == 1
+    assert progress.total_questions == 2
+    assert progress.quiz_score_pct == 50
+
+
+def test_resubmitting_quiz_overwrites_not_duplicates(client, learner, published_lesson):
+    _login(client, learner)
+    q1, q2 = published_lesson.questions
+    correct1 = next(c for c in q1.choices if c.is_correct)
+    correct2 = next(c for c in q2.choices if c.is_correct)
+    wrong1 = next(c for c in q1.choices if not c.is_correct)
+
+    client.post(
+        f"/lessons/{published_lesson.slug}/quiz",
+        data={f"question-{q1.id}": str(wrong1.id), f"question-{q2.id}": str(correct2.id)},
+    )
+    client.post(
+        f"/lessons/{published_lesson.slug}/quiz",
+        data={f"question-{q1.id}": str(correct1.id), f"question-{q2.id}": str(correct2.id)},
+    )
+
+    rows = UserProgress.query.filter_by(user_id=learner.id, lesson_id=published_lesson.id).all()
+    assert len(rows) == 1
+    assert rows[0].correct_count == 2
+
+
+def test_calculator_defaults_and_clamps_input(client, db):
+    resp = client.get("/lessons/calculator")
+    assert resp.status_code == 200
+
+    resp = client.get("/lessons/calculator?monthly_rwf=-500&months=0")
+    assert resp.status_code == 200  # clamped, not a 500
+
+
+def test_calculate_progress_counts_only_published_completed(client, learner, published_lesson, draft_lesson):
+    from app.lessons.utils import calculate_progress
+
+    result = calculate_progress(learner)
+    assert result["total"] == 1  # draft_lesson excluded
+    assert result["completed"] == 0
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_lessons\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_main\test_main.py ===
+"""Main blueprint: landing, about, dashboard."""
+
+
+def test_index_loads(client, db):
+    resp = client.get("/")
+    assert resp.status_code == 200
+
+
+def test_about_loads(client):
+    resp = client.get("/about")
+    assert resp.status_code == 200
+
+
+def test_dashboard_requires_login(client):
+    resp = client.get("/dashboard", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/auth/login" in resp.headers["Location"]
+
+
+def test_dashboard_shows_progress_for_logged_in_user(client, learner, published_lesson):
+    client.post("/auth/login", data={"email": learner.email, "password": "correct-password"})
+    resp = client.get("/dashboard")
+    assert resp.status_code == 200
+    assert published_lesson.title.encode() in resp.data
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\test_main\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\conftest.py ===
+"""
+Shared pytest fixtures. TestConfig (app/config.py) points at an in-memory
+SQLite DB and disables CSRF, so each test gets a fresh schema with no files
+touched on disk and no need to fight Flask-WTF's CSRF token in test clients.
+"""
+from __future__ import annotations
+
+import pytest
+
+from app import create_app
+from app.config import TestConfig
+from app.extensions import db as _db
+from app.models import Institution, Lesson, Question, Choice, User, UserRole
+
+
+@pytest.fixture()
+def app():
+    application = create_app(TestConfig)
+
+    with application.app_context():
+        _db.create_all()
+        yield application
+        _db.session.remove()
+        _db.drop_all()
+
+
+@pytest.fixture()
+def db(app):
+    return _db
+
+
+@pytest.fixture()
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture()
+def learner(db):
+    """A registered, non-admin user â€” the common case for most tests."""
+    user = User(email="learner@example.com", role=UserRole.LEARNER)
+    user.set_password("correct-password")
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+@pytest.fixture()
+def admin(db):
+    user = User(email="admin@example.com", role=UserRole.ADMIN)
+    user.set_password("correct-password")
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+@pytest.fixture()
+def published_lesson(db):
+    """One published lesson with a 2-question quiz â€” enough to exercise
+    detail/quiz/submit_quiz/progress without needing the real markdown
+    content pipeline in every test."""
+    lesson = Lesson(
+        slug="test-lesson",
+        title="Test Lesson",
+        order_index=1,
+        content_body="Some **markdown** content.",
+        is_published=True,
+    )
+    q1 = Question(
+        text="2 + 2?",
+        order_index=1,
+        choices=[
+            Choice(text="3", is_correct=False),
+            Choice(text="4", is_correct=True),
+        ],
+    )
+    q2 = Question(
+        text="Capital of Rwanda?",
+        order_index=2,
+        choices=[
+            Choice(text="Kigali", is_correct=True),
+            Choice(text="Nairobi", is_correct=False),
+        ],
+    )
+    lesson.questions = [q1, q2]
+    db.session.add(lesson)
+    db.session.commit()
+    return lesson
+
+
+@pytest.fixture()
+def draft_lesson(db):
+    lesson = Lesson(
+        slug="draft-lesson",
+        title="Draft Lesson",
+        order_index=2,
+        content_body="Not fact-checked yet.",
+        is_published=False,
+    )
+    db.session.add(lesson)
+    db.session.commit()
+    return lesson
+
+
+@pytest.fixture()
+def institution(db):
+    inst = Institution(
+        name="Test Regulator",
+        description="A test institution.",
+        url="https://example.com",
+        category="regulator",
+    )
+    db.session.add(inst)
+    db.session.commit()
+    return inst
+
+
+def login(client, email, password):
+    return client.post(
+        "/auth/login", data={"email": email, "password": password}, follow_redirects=True
+    )
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tests\__init__.py ===
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\README.md ===
+# Tera
+
+A localized investment-literacy platform for Rwandan youth. See `docs/srs/`
+for the full Proposal & SRS.
+
+## Status
+Sprint 0 â€” scaffolding. See `ai-context/06-current-sprint.md` for live state.
+
+## Setup (TODO â€” fill in as the real steps stabilize)
+1. `python -m venv venv && source venv/bin/activate`
+2. `pip install -r requirements.txt`
+3. `npm install`
+4. Copy `.env.example` -> `.env` and fill in values
+5. `flask db upgrade`
+6. `npm run watch-css` (separate terminal)
+7. `flask run`
+
+## Docs
+- `docs/srs/` â€” Proposal & SRS
+- `docs/architecture/` â€” architecture + ERD diagrams
+- `docs/research/` â€” sourced facts, institution notes
+- `docs/figma/` â€” design tokens, prototype screenshots
+- `ai-context/` â€” read this first if you're an AI assistant picking up this project
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\run.py ===
+from app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(debug=True)
+=== C:\Users\Thompson\Downloads\tera-mvp (1)\tera\tailwind.config.js ===
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/templates/**/*.html",
+    "./app/static/js/**/*.js",
+  ],
+  theme: {
+    extend: {
+      // Placeholder palette until docs/figma/design-tokens.md exists with
+      // real values from a Figma file â€” swap these when that happens.
+      colors: {
+        navy: {
+          50: "#eef1f7",
+          100: "#d7deec",
+          400: "#5b76a8",
+          700: "#243a63",
+          900: "#152647",
+        },
+        gold: {
+          50: "#fdf8ec",
+          100: "#faeec9",
+          200: "#f5dd98",
+          300: "#f0c968",
+          400: "#e8b23e",
+        },
+      },
+      fontFamily: {
+        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+    },
+  },
+  plugins: [require("@tailwindcss/typography")],
+};

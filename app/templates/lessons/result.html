@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Quiz result: {{ lesson.title }} — Tera{% endblock %}
+{% block content %}
+<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+  <div class="rounded-lg border p-6 text-center
+    {{ 'border-green-200 bg-green-50' if progress.quiz_score_pct >= 70 else 'border-amber-200 bg-amber-50' }}">
+    <p class="text-sm uppercase tracking-wide text-slate-500 font-semibold">Your score</p>
+    <p class="mt-1 text-4xl font-bold">{{ result.correct_count }} / {{ result.total_questions }}</p>
+    <p class="mt-1 text-lg font-medium">{{ progress.quiz_score_pct }}%</p>
+    {% if progress.quiz_score_pct >= 70 %}
+      <p class="mt-2 text-green-700 text-sm">Solid — you've got this one down.</p>
+    {% else %}
+      <p class="mt-2 text-amber-700 text-sm">Worth a re-read before you move on.</p>
+    {% endif %}
+  </div>
+
+  <h2 class="mt-8 font-semibold">Review</h2>
+  <div class="mt-3 space-y-4">
+    {% for row in result.results %}
+      <div class="rounded-lg border p-4 {{ 'border-green-200' if row.is_correct else 'border-red-200' }}">
+        <p class="font-medium">{{ loop.index }}. {{ row.question.text }}</p>
+        <ul class="mt-2 space-y-1 text-sm">
+          {% for choice in row.question.choices %}
+            <li class="flex items-center gap-2
+              {{ 'text-green-700 font-medium' if choice.id == row.correct_choice_id else '' }}
+              {{ 'text-red-700' if choice.id == row.selected_choice_id and not row.is_correct else '' }}">
+              {% if choice.id == row.correct_choice_id %}✓{% elif choice.id == row.selected_choice_id %}✗{% else %}&nbsp;&nbsp;{% endif %}
+              {{ choice.text }}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-semibold hover:bg-navy-700">Next lesson</a>
+    <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Retake quiz</a>
+  </div>
+</section>
+{% endblock %}

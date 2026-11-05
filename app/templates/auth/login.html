@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import "macros/forms.html" as f %}
+{% block title %}Log in — Tera{% endblock %}
+{% block content %}
+<section class="max-w-md mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-2xl font-bold">Welcome back</h1>
+
+  <form method="post" class="mt-6">
+    {{ form.hidden_tag() }}
+    {{ f.field(form.email) }}
+    {{ f.field(form.password) }}
+    {{ f.checkbox(form.remember_me) }}
+    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5 hover:bg-navy-700">
+      Log in
+    </button>
+  </form>
+
+  <p class="mt-4 text-sm text-slate-500">
+    New here? <a href="{{ url_for('auth.register') }}" class="text-navy-700 font-medium underline">Create an account</a>
+  </p>
+</section>
+{% endblock %}

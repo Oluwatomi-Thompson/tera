@@ -1,0 +1,41 @@
+# Seed data for the "Where to actually invest" directory (FR9).
+# Upserted by name via `flask seed-db` / the admin "Resync" button is NOT
+# wired to this file (see ADR-004 — only lesson content resyncs from files;
+# institutions are edited live in the admin panel after this initial seed).
+# Every entry here must be a real, publicly verifiable, licensed Rwandan
+# institution — see ai-context/08-decisions.md business rule in the SRS
+# (Section 5.5): the Resource Directory may only list CMA-licensed/regulated
+# institutions.
+
+- name: "Capital Markets Authority (CMA)"
+  category: regulator
+  url: "https://www.cma.rw"
+  description: >
+    Rwanda's capital markets regulator. Licenses and oversees the exchange,
+    brokers, and fund managers listed below. If you want to confirm an
+    institution is actually licensed, this is the authority to check with.
+
+- name: "Rwanda Stock Exchange (RSE)"
+  category: exchange
+  url: "https://rse.rw"
+  description: >
+    Where shares of Rwanda's publicly listed companies are traded. Shares
+    trade in a minimum board lot of 100 shares. You trade through a
+    licensed broker, not directly with the RSE.
+
+- name: "Rwanda National Investment Trust (RNIT) — Iterambere Fund"
+  category: unit_trust
+  url: "https://rnit.rw"
+  description: >
+    A government-owned, professionally managed unit trust. Its
+    reinvestment-option minimum initial investment is RWF 2,000 — the
+    lowest-cost entry point covered in Tera's lessons.
+
+- name: "RSE Licensed Stockbrokers Directory"
+  category: broker
+  url: "https://rse.rw/stockbrokers"
+  description: >
+    The Rwanda Stock Exchange's own list of currently licensed stockbrokers.
+    Tera deliberately doesn't name one specific firm here — licensing status
+    can change, so this official, always-current directory is the
+    trustworthy source to check before opening a trading account.

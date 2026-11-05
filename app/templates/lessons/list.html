@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Lessons — Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+  <h1 class="text-2xl font-bold">Lessons</h1>
+  <p class="mt-1 text-slate-600">Work through these in order — each one builds on the last.</p>
+
+  <div class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for lesson in lessons %}
+      {% set p = progress_by_lesson.get(lesson.id) %}
+      <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="flex items-center gap-4 px-5 py-4 hover:bg-slate-50">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold shrink-0
+          {{ 'bg-green-100 text-green-700' if p and p.completed else 'bg-navy-100 text-navy-700' }}">
+          {{ loop.index }}
+        </div>
+        <div class="flex-1">
+          <p class="font-medium">{{ lesson.title }}</p>
+          {% if p and p.completed %}
+            <p class="text-sm text-green-700">Completed — scored {{ p.quiz_score_pct }}%</p>
+          {% else %}
+            <p class="text-sm text-slate-500">{{ lesson.questions|length }} quiz question{{ 's' if lesson.questions|length != 1 else '' }}</p>
+          {% endif %}
+        </div>
+        {% if p and p.completed %}
+          <span class="text-green-600" aria-hidden="true">✓</span>
+        {% endif %}
+      </a>
+    {% else %}
+      <p class="px-5 py-6 text-sm text-slate-500">No lessons published yet — check back soon.</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

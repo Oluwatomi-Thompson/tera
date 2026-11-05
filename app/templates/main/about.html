@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}About Tera{% endblock %}
+{% block content %}
+<section class="max-w-3xl mx-auto px-4 sm:px-6 py-14">
+  <h1 class="text-3xl font-bold">About Tera</h1>
+
+  <p class="mt-6 text-slate-700 leading-relaxed">
+    Tera exists to close one specific gap: most freely available investing education assumes you're in the US or UK — foreign currencies, foreign brokers, foreign minimums. A young Rwandan researching "how to start investing" has to do a lot of extra translation work before any of it is actually actionable.
+  </p>
+  <p class="mt-4 text-slate-700 leading-relaxed">
+    Tera teaches the basics in RWF, references mobile money as the payment method most Rwandans already use daily, and names real local institutions and thresholds instead of generic international ones.
+  </p>
+
+  <div class="mt-8 rounded-lg border border-gold-200 bg-gold-50 p-5">
+    <h2 class="font-semibold text-navy-900">What Tera is not</h2>
+    <ul class="mt-2 space-y-1 text-sm text-slate-700 list-disc list-inside">
+      <li>Not a broker — we never hold funds or execute trades.</li>
+      <li>Not personalized financial advice — lessons are educational, not a recommendation for your specific situation.</li>
+      <li>Not affiliated with the CMA, RSE, or RNIT — we link to them as independent, publicly verifiable sources.</li>
+    </ul>
+  </div>
+
+  <h2 class="mt-10 text-xl font-semibold">The funnel model</h2>
+  <p class="mt-3 text-slate-700 leading-relaxed">
+    Once you've worked through the lessons and feel ready, Tera's job is done — we send you to the <a href="{{ url_for('institutions.directory') }}" class="text-navy-700 underline font-medium">real, licensed institutions</a> to actually open an account and invest. We'd rather be a good on-ramp than a mediocre bank.
+  </p>
+
+  <h2 class="mt-10 text-xl font-semibold">A student project</h2>
+  <p class="mt-3 text-slate-700 leading-relaxed">
+    Tera is a project built for an ALU software engineering course. It's a genuine attempt at a real problem, built at a scope one developer can responsibly ship and maintain.
+  </p>
+</section>
+{% endblock %}
