@@ -1,23 +1,24 @@
-# Current Sprint
+# Current Project Status
 
-**Sprint:** 0 — Planning & Setup
-**Goal:** finalize requirements, ERD, architecture, scaffold the repo
+**Snapshot:** `docs/complete-ai-context` branch, based on the files currently checked in. The repository does not include an SRS under `docs/srs/`, so there is no verified sprint plan to reproduce here. Do not treat this snapshot as a formal project-management status.
 
-## Todo
-- [ ] Draw the actual ERD diagram from ai-context/03-database-schema.md (dbdiagram.io or similar) -> docs/architecture/
-- [ ] Write content strategy: full lesson list + objectives (ai-context/05)
-- [ ] Write 2-3 real lesson .md files from _TEMPLATE.md, fact-checked and cited
-- [ ] `flask db init` + first migration once models are reviewed
-- [ ] Try `flask seed-db` against the real lesson files, confirm upsert-by-slug works
-- [ ] Figma wireframes for key screens
+## Implemented in the repository
 
-## In Progress
-- [ ]
+- [x] Flask app factory, configuration, extensions, six registered blueprints, and CLI commands.
+- [x] User registration/login/profile and learner/admin roles.
+- [x] Lesson listing/detail, quizzes, quiz scoring, and per-learner progress.
+- [x] Markdown lesson seeding and initial institution YAML seeding.
+- [x] Public institution directory and admin management flows.
+- [x] Server-rendered calculator plus JSON endpoint and browser-side enhancement.
+- [x] Initial migration and tests organized by app area.
+- [x] Five lesson Markdown files are present and marked published in their frontmatter.
 
-## Done
-- [x] Repo scaffolded
-- [x] ERD finalized (dropped standalone `quizzes` table — see ADR-003)
-- [x] Decision made: markdown files are source of truth for lesson content — see ADR-004
-- [x] app/models/* written to match finalized ERD
-- [x] app/extensions.py + app/__init__.py wired up (db, migrate, login_manager, blueprints)
-- [x] `flask seed-db` command written (app/commands.py) — parses frontmatter + quiz markdown, upserts by slug
+## Useful next checks (not a committed sprint plan)
+
+- [ ] Add the approved SRS or requirements document to `docs/srs/` and align the roadmap/status notes with it.
+- [ ] Run the test suite and record the result in the PR or project notes; this review did not execute tests.
+- [ ] Confirm lesson facts, citations, institution links, and licensing information against current primary sources before presenting the material as current.
+- [ ] Check that local setup instructions work from a clean clone and document verified steps in `README.md`.
+- [ ] Decide whether to add a rendered ERD to `docs/architecture/`; the schema currently has no diagram checked in.
+
+Update this file when a verified project plan exists. Keep completed work, active work, and proposed follow-ups distinct.

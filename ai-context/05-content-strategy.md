@@ -1,30 +1,30 @@
 # Content Strategy
 
-TODO:
-- Full lesson list in order, each with a one-line learning objective
-- Rwanda-specific facts bank (source each one — see docs/research/)
-- Tone/voice notes (simple, jargon-light, RWF-denominated, cite every figure)
+## Audience and editorial principles
 
-## Authoring workflow (finalized — see ai-context/08-decisions.md, ADR-004)
-1. Copy `app/content/lessons/_TEMPLATE.md` to `<slug>.md`.
-2. Fill in frontmatter: `slug`, `order`, `title`, `is_published` (leave
-   `false` until fact-checked), `objective`, `sources` (every factual claim
-   in the lesson needs at least one entry here).
-3. Write the lesson under `## Content` in plain markdown.
-4. Write quiz questions under `## Quiz`:
-   - Numbered list = questions, in order.
-   - Sub-bullets `- [ ]` / `- [x]` = choices; exactly one `[x]` per question
-     (not enforced by the parser — check it yourself).
-5. Run `flask seed-db`. Re-run any time you edit the file — it upserts by
-   `slug`, so it's safe to run repeatedly.
-6. Flip `is_published: true` once the content is fact-checked and re-seed,
-   or toggle it from the admin panel (same effect, no re-seed needed for
-   just a publish-state change).
+The lessons are aimed at people learning the basics of investing in Rwanda. Use plain language, define financial terms, prefer realistic RWF examples, and distinguish saving from investing. Explain risks as well as potential returns. Do not frame Tera as a broker, imply a return is guaranteed, or recommend a particular investment product.
 
-## Lesson list
-TODO — draft the actual sequence, something like:
-1. What is investing, in RWF terms
-2. Mobile money vs. bank vs. broker
-3. Risk and return basics
-4. Where Rwandans can actually invest (RSE, RNIT, etc.)
-5. How much do you actually need to start
+Financial figures, product terms, institution names, and licensing claims can change. Cite claims in each lesson's `sources` frontmatter, use authoritative and current sources where possible, and verify those sources before publication. This document summarizes the repository's stated approach; it is not an independent fact-check of lesson claims.
+
+## Current lesson sequence
+
+The checked-in content currently contains five lessons, ordered by frontmatter:
+
+1. `what-is-investing` — Explain investing versus saving using RWF examples.
+2. `mobile-money-bank-broker` — Distinguish payment methods from regulated investment providers.
+3. `risk-and-return-basics` — Explain risk, return, diversification, and time horizon without recommending a product.
+4. `where-rwandans-can-invest` — Introduce relevant Rwandan market institutions and the resource directory.
+5. `how-much-to-start` — Discuss entry amounts and use the calculator as an illustrative next step.
+
+The content lives in `app/content/lessons/`; each lesson's frontmatter controls slug, order, title, publication state, objective, and sources. The database is a synchronized runtime copy, not the place to author lesson text.
+
+## Authoring and synchronization
+
+1. Copy `app/content/lessons/_TEMPLATE.md` to a new `.md` file whose name is not underscore-prefixed.
+2. Fill in the required frontmatter (`slug`, `order`, `title`); include `is_published`, a learning objective, and sources. Keep new lessons unpublished until review is complete.
+3. Put the lesson body beneath `## Content` and quiz questions beneath `## Quiz`.
+4. Follow the parser format: numbered questions and choice lines using `- [ ]` or `- [x]`. Ensure exactly one correct choice per question manually; the parser does not enforce that rule.
+5. Run `flask seed-db` to synchronize. It upserts by slug and replaces that lesson's questions/choices from Markdown.
+6. Review the rendered content, citations, and quiz before publishing. The admin panel can publish/unpublish and reorder, but Markdown remains authoritative on the next seed/resync.
+
+See `app/commands.py`, the lesson template, and ADR-004 in `08-decisions.md` for implementation details.
