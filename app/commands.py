@@ -158,7 +158,11 @@ def seed_all() -> int:
 
         lesson = Lesson.query.filter_by(slug=meta["slug"]).first()
         if lesson is None:
-            lesson = Lesson(slug=meta["slug"])
+            lesson = Lesson(
+                slug=meta["slug"],
+                title=meta["title"],
+                order_index=-(len(parsed) + 1),
+            )
             db.session.add(lesson)
         source_path = str(path.relative_to(CONTENT_DIR.parent.parent.parent))
         parsed.append((lesson, meta, content_md, questions, source_path))
@@ -177,13 +181,9 @@ def seed_all() -> int:
     # that as its own step, then apply the real target values in a second
     # pass. Markdown stays authoritative — this only changes the order in
     # which writes land, not which values win.
-    for i, (lesson, *_rest) in enumerate(parsed, start=1):
-        lesson.order_index = -i
-    db.session.flush()
-
-    for lesson, meta, content_md, questions, source_path in parsed:
+    for i, (lesson, meta, content_md, questions, source_path) in enumerate(parsed, start=1):
         lesson.title = meta["title"]
-        lesson.order_index = meta["order"]
+        lesson.order_index = -i
         lesson.content_body = content_md
         lesson.is_published = bool(meta.get("is_published", False))
         lesson.source_path = source_path
@@ -199,6 +199,10 @@ def seed_all() -> int:
             )
             for q in questions
         ]
+    db.session.flush()
+
+    for lesson, meta, *_rest in parsed:
+        lesson.order_index = meta["order"]
 
     db.session.commit()
     return len(parsed)
@@ -222,11 +226,17 @@ def seed_institutions() -> int:
     for row in data:
         inst = Institution.query.filter_by(name=row["name"]).first()
         if inst is None:
-            inst = Institution(name=row["name"])
+            inst = Institution(
+                name=row["name"],
+                description=row.get("description", ""),
+                url=row["url"],
+                category=row.get("category"),
+            )
             db.session.add(inst)
-        inst.description = row.get("description", "")
-        inst.url = row["url"]
-        inst.category = row.get("category")
+        else:
+            inst.description = row.get("description", "")
+            inst.url = row["url"]
+            inst.category = row.get("category")
         count += 1
 
     db.session.commit()

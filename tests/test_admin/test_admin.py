@@ -106,3 +106,15 @@ def test_institution_crud_forbidden_for_learner(client, learner):
     _login(client, learner)
     resp = client.get("/admin/institutions/new")
     assert resp.status_code == 403
+
+
+def test_admin_resync(client, admin, db):
+    _login(client, admin)
+    resp = client.post("/admin/resync", follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Resynced" in resp.data
+    lessons = Lesson.query.all()
+    assert len(lessons) >= 1
+    # Check that re-running resync upserts cleanly without integrity errors
+    resp2 = client.post("/admin/resync", follow_redirects=True)
+    assert resp2.status_code == 200
