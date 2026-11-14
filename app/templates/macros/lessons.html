@@ -1,0 +1,29 @@
+{# A single lesson row in a list or dashboard #}
+{% macro lesson_row(lesson, progress, index, is_next=false) %}
+<li class="relative mb-3 last:mb-0">
+  <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}"
+     class="panel flex items-center justify-between gap-4 p-5 transition hover:border-kivu-400 {{ 'ring-2 ring-sun-400' if is_next else '' }}">
+    <div class="flex items-center gap-4">
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-display text-sm font-bold
+        {{ 'bg-hill-100 text-hill-700' if progress and progress.completed else 'bg-kivu-100 text-kivu-800' }}">
+        {% if progress and progress.completed %}
+          ✓
+        {% else %}
+          {{ index }}
+        {% endif %}
+      </div>
+      <div>
+        <p class="font-semibold text-kivu-900">{{ lesson.title }}</p>
+        {% if progress and progress.completed %}
+          <p class="text-xs font-medium text-hill-700">Completed — scored {{ progress.quiz_score_pct }}%</p>
+        {% elif is_next %}
+          <p class="text-xs font-semibold text-sun-500">Next up</p>
+        {% else %}
+          <p class="text-xs text-slate2">{{ lesson.questions|length }} quiz question{{ 's' if lesson.questions|length != 1 else '' }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <span class="text-kivu-400" aria-hidden="true">→</span>
+  </a>
+</li>
+{% endmacro %}

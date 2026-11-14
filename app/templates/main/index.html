@@ -1,45 +1,58 @@
 {% extends "base.html" %}
 {% block title %}Tera — Investing basics, in RWF terms{% endblock %}
 {% block content %}
-<section class="bg-navy-900 text-white">
-  <div class="max-w-5xl mx-auto px-4 sm:px-6 py-16 sm:py-24 grid sm:grid-cols-2 gap-10 items-center">
+<section class="on-dark bg-kivu-800 text-white">
+  <div class="mx-auto grid max-w-5xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 md:grid-cols-[1.3fr_1fr]">
     <div>
-      <h1 class="text-3xl sm:text-4xl font-bold leading-tight">
+      <h1 class="max-w-xl text-4xl font-extrabold leading-[1.05] text-white sm:text-5xl">
         Investing in Rwanda isn't the "someday" thing you think it is.
       </h1>
-      <p class="mt-4 text-navy-100 text-lg">
-        Most investing content online assumes you're in New York or London. Tera teaches the basics in RWF — real local thresholds, real mobile-money habits — then points you to the licensed institutions to actually start.
+      <p class="mt-5 max-w-lg text-lg leading-relaxed text-kivu-100">
+        Most investing content online assumes you're in New York or London. Tera teaches the basics in RWF, with real local thresholds and real mobile-money habits, then points you to the licensed institutions where you can actually start.
       </p>
-      <div class="mt-8 flex flex-wrap gap-3">
-        <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-gold-400 text-navy-900 font-semibold px-5 py-3 hover:bg-gold-300">Start learning</a>
-        <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-white/10 px-5 py-3 font-medium hover:bg-white/20">Try the calculator</a>
+      <div class="mt-9 flex flex-wrap gap-3">
+        <a href="{{ url_for('lessons.list_lessons') }}" class="btn btn-sun">Start learning</a>
+        <a href="{{ url_for('lessons.calculator') }}" class="btn btn-quiet-dark">Try the calculator</a>
       </div>
     </div>
-    <div class="bg-white/5 border border-white/10 rounded-xl p-6">
-      <p class="text-sm uppercase tracking-wide text-gold-300 font-semibold">Did you know?</p>
-      <p class="mt-2 text-lg">You can start investing in Rwanda's RNIT Iterambere Fund with as little as <span class="font-bold text-gold-300">RWF 2,000</span>.</p>
-      <p class="mt-4 text-sm text-navy-100">Most "how to invest" guides never mention that — because they weren't written for Rwanda.</p>
+
+    <div class="rounded-2xl border border-white/10 bg-kivu-900 p-7 sm:p-8">
+      <p class="text-balance text-kivu-100">Start the RNIT Iterambere Fund with as little as</p>
+      <p class="mt-3 flex items-baseline gap-2 font-display font-extrabold leading-none">
+        <span class="text-2xl text-sun-300">RWF</span>
+        <span class="text-7xl tracking-tight text-white sm:text-8xl">2,000</span>
+      </p>
+      <p class="mt-5 text-sm leading-relaxed text-kivu-200">
+        Most "how to invest" guides never mention it, because they weren't written for Rwanda.
+      </p>
+      <p class="mt-4 text-xs text-kivu-200/80">Source: RNIT Iterambere Fund offer document (2024)</p>
     </div>
   </div>
 </section>
 
-<section class="max-w-5xl mx-auto px-4 sm:px-6 py-14">
-  <div class="grid sm:grid-cols-3 gap-6">
-    <div class="rounded-lg border border-slate-200 p-5">
-      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">1</div>
-      <h3 class="mt-3 font-semibold">Learn the basics</h3>
-      <p class="mt-1 text-sm text-slate-600">{{ lesson_count }} short lesson{{ 's' if lesson_count != 1 else '' }}, written for Rwanda — RWF amounts, mobile money, local instruments.</p>
-    </div>
-    <div class="rounded-lg border border-slate-200 p-5">
-      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">2</div>
-      <h3 class="mt-3 font-semibold">Test yourself</h3>
-      <p class="mt-1 text-sm text-slate-600">A short quiz after each lesson, with your progress tracked on your dashboard.</p>
-    </div>
-    <div class="rounded-lg border border-slate-200 p-5">
-      <div class="w-10 h-10 rounded-full bg-navy-100 text-navy-700 flex items-center justify-center font-bold">3</div>
-      <h3 class="mt-3 font-semibold">Go invest for real</h3>
-      <p class="mt-1 text-sm text-slate-600">We hand you off to the actual licensed regulator, exchange, and brokers — we never hold your money.</p>
-    </div>
-  </div>
+<section class="mx-auto max-w-5xl px-4 pb-6 pt-16 sm:px-6">
+  <h2 class="text-2xl font-bold sm:text-3xl">How Tera works</h2>
+
+  <ol class="mt-10 grid gap-10 md:grid-cols-3">
+    <li class="relative md:after:absolute md:after:left-[3.5rem] md:after:right-[-1.5rem] md:after:top-5 md:after:h-px md:after:bg-kivu-200 md:last:after:hidden">
+      <span class="flex h-11 w-11 items-center justify-center rounded-full bg-kivu-800 font-display text-lg font-bold text-white">1</span>
+      <h3 class="mt-4 text-xl font-semibold">Learn the basics</h3>
+      <p class="mt-2 max-w-xs leading-relaxed text-slate2">{{ lesson_count }} short lesson{{ 's' if lesson_count != 1 else '' }}, written for Rwanda: RWF amounts, mobile money and local instruments.</p>
+    </li>
+    <li class="relative md:after:absolute md:after:left-[3.5rem] md:after:right-[-1.5rem] md:after:top-5 md:after:h-px md:after:bg-kivu-200 md:last:after:hidden">
+      <span class="flex h-11 w-11 items-center justify-center rounded-full bg-kivu-800 font-display text-lg font-bold text-white">2</span>
+      <h3 class="mt-4 text-xl font-semibold">Test yourself</h3>
+      <p class="mt-2 max-w-xs leading-relaxed text-slate2">A short quiz after each lesson, with your progress saved on your dashboard.</p>
+    </li>
+    <li class="relative md:last:after:hidden">
+      <span class="flex h-11 w-11 items-center justify-center rounded-full bg-kivu-800 font-display text-lg font-bold text-white">3</span>
+      <h3 class="mt-4 text-xl font-semibold">Go invest for real</h3>
+      <p class="mt-2 max-w-xs leading-relaxed text-slate2">We hand you to the actual licensed regulator, exchange and brokers. We never hold your money.</p>
+    </li>
+  </ol>
+
+  <p class="mt-14 text-slate2">
+    Already know the basics? <a href="{{ url_for('institutions.directory') }}" class="link">Go straight to where to invest</a>.
+  </p>
 </section>
 {% endblock %}

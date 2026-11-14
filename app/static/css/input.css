@@ -2,4 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-/* TODO: any custom component classes go here */
+/* Tera UI layer. Colours and fonts come from tailwind.config.js (mirrored in
+   docs/figma/design-tokens.md). Role of each colour:
+     kivu  text, nav, footer, hero, standard buttons
+     mist  page ground
+     sun   the ONE next action on a page (primary button, "next up" marker)
+     hill  progress, completion, correct answers
+     clay  wrong answers and errors only                                    */
+
+@layer base {
+  html {
+    @apply font-sans antialiased;
+    scroll-padding-top: 1rem;
+  }
+  body {
+    @apply bg-mist text-kivu-900;
+  }
+  h1, h2, h3 {
+    @apply font-display tracking-tight text-kivu-900;
+  }
+  ::selection {
+    @apply bg-sun-300 text-kivu-900;
+  }
+
+  /* Keyboard focus: kivu ring on light surfaces, sun ring on dark ones. */
+  :focus-visible {
+    outline: 3px solid theme("colors.kivu.600");
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  .on-dark :focus-visible {
+    outline-color: theme("colors.sun.300");
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---- buttons ---- */
+  .btn {
+    @apply inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-lg px-5 text-[0.95rem] font-semibold transition-colors;
+  }
+  .btn-sm {
+    @apply min-h-[2.25rem] px-3.5 text-sm;
+  }
+  .btn-sun {
+    @apply bg-sun-400 text-kivu-900 hover:bg-sun-300;
+  }
+  .btn-kivu {
+    @apply bg-kivu-800 text-white hover:bg-kivu-700;
+  }
+  .btn-quiet {
+    @apply border border-kivu-200 bg-white text-kivu-800 hover:bg-kivu-50;
+  }
+  .btn-quiet-dark {
+    @apply border border-white/30 text-white hover:bg-white/10;
+  }
+  .btn-danger {
+    @apply border border-clay-600/40 bg-white text-clay-600 hover:bg-clay-100;
+  }
+
+  /* ---- surfaces ---- */
+  .panel {
+    @apply rounded-xl border border-kivu-100 bg-white;
+  }
+  .rows {
+    @apply divide-y divide-kivu-100 overflow-hidden rounded-xl border border-kivu-100 bg-white;
+  }
+
+  /* ---- text link: sun underline, same treatment as lesson prose links ---- */
+  .link {
+    @apply font-medium text-kivu-700 underline decoration-sun-400 decoration-2 underline-offset-4 hover:text-kivu-900;
+  }
+
+  /* ---- form fields ---- */
+  .field {
+    @apply w-full rounded-lg border border-kivu-200 bg-white px-3.5 py-2.5 text-base text-kivu-900 placeholder:text-slate2/70 focus:border-kivu-600;
+  }
+  .field-error {
+    @apply border-clay-600;
+  }
+
+  /* ---- chips and badges ---- */
+  .chip {
+    @apply inline-flex min-h-[2.25rem] items-center rounded-full border px-3.5 text-sm font-medium transition-colors;
+  }
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  /* ---- progress fill: grows once on load, the page's one moving moment ---- */
+  .fill-in {
+    animation: fill-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}
+
+@keyframes fill-in {
+  from { width: 0; }
+}

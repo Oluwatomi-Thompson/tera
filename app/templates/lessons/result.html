@@ -1,31 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Quiz result: {{ lesson.title }} — Tera{% endblock %}
 {% block content %}
-<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-  <div class="rounded-lg border p-6 text-center
-    {{ 'border-green-200 bg-green-50' if progress.quiz_score_pct >= 70 else 'border-amber-200 bg-amber-50' }}">
-    <p class="text-sm uppercase tracking-wide text-slate-500 font-semibold">Your score</p>
-    <p class="mt-1 text-4xl font-bold">{{ result.correct_count }} / {{ result.total_questions }}</p>
-    <p class="mt-1 text-lg font-medium">{{ progress.quiz_score_pct }}%</p>
-    {% if progress.quiz_score_pct >= 70 %}
-      <p class="mt-2 text-green-700 text-sm">Solid — you've got this one down.</p>
+{% set passed = progress.quiz_score_pct >= 70 %}
+<section class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+  <div class="rounded-2xl border p-8 text-center {{ 'border-hill-600/30 bg-hill-100' if passed else 'border-sun-300 bg-sun-100' }}">
+    <p class="font-display font-extrabold leading-none">
+      <span class="sr-only">{{ result.correct_count }} / {{ result.total_questions }} correct</span>
+      <span class="text-7xl" aria-hidden="true">{{ result.correct_count }}</span><span class="ml-1 text-4xl text-slate2" aria-hidden="true">/ {{ result.total_questions }}</span>
+    </p>
+    <p class="mt-3 font-display text-xl font-semibold">{{ progress.quiz_score_pct }}%</p>
+    {% if passed %}
+      <p class="mt-2 font-medium text-hill-700">Solid. You've got this one down.</p>
     {% else %}
-      <p class="mt-2 text-amber-700 text-sm">Worth a re-read before you move on.</p>
+      <p class="mt-2 font-medium text-kivu-800">Worth a re-read before you move on.</p>
     {% endif %}
   </div>
 
-  <h2 class="mt-8 font-semibold">Review</h2>
-  <div class="mt-3 space-y-4">
+  <h2 class="mt-12 text-2xl font-bold">Review your answers</h2>
+  <div class="mt-5 space-y-4">
     {% for row in result.results %}
-      <div class="rounded-lg border p-4 {{ 'border-green-200' if row.is_correct else 'border-red-200' }}">
-        <p class="font-medium">{{ loop.index }}. {{ row.question.text }}</p>
-        <ul class="mt-2 space-y-1 text-sm">
+      <div class="panel border-l-4 p-5 {{ 'border-l-hill-600' if row.is_correct else 'border-l-clay-600' }}">
+        <p class="font-display text-lg font-semibold leading-snug"><span class="text-slate2">{{ loop.index }}.</span> {{ row.question.text }}</p>
+        <ul class="mt-3 space-y-1.5 text-[0.95rem]">
           {% for choice in row.question.choices %}
-            <li class="flex items-center gap-2
-              {{ 'text-green-700 font-medium' if choice.id == row.correct_choice_id else '' }}
-              {{ 'text-red-700' if choice.id == row.selected_choice_id and not row.is_correct else '' }}">
-              {% if choice.id == row.correct_choice_id %}✓{% elif choice.id == row.selected_choice_id %}✗{% else %}&nbsp;&nbsp;{% endif %}
-              {{ choice.text }}
+            {% set is_correct_choice = choice.id == row.correct_choice_id %}
+            {% set is_wrong_pick = choice.id == row.selected_choice_id and not row.is_correct %}
+            <li class="flex items-start gap-2.5 {{ 'font-medium text-hill-700' if is_correct_choice else ('text-clay-600' if is_wrong_pick else 'text-slate2') }}">
+              <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                {% if is_correct_choice %}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 111.4-1.4l3.8 3.8 6.8-6.8a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+                {% elif is_wrong_pick %}
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.3 5.3a1 1 0 011.4 0L10 8.6l3.3-3.3a1 1 0 111.4 1.4L11.4 10l3.3 3.3a1 1 0 01-1.4 1.4L10 11.4l-3.3 3.3a1 1 0 01-1.4-1.4L8.6 10 5.3 6.7a1 1 0 010-1.4z" clip-rule="evenodd"/></svg>
+                {% endif %}
+              </span>
+              <span>
+                {% if is_correct_choice %}<span class="sr-only">Correct answer: </span>{% elif is_wrong_pick %}<span class="sr-only">Your answer: </span>{% endif %}{{ choice.text }}
+              </span>
             </li>
           {% endfor %}
         </ul>
@@ -33,9 +43,9 @@
     {% endfor %}
   </div>
 
-  <div class="mt-8 flex flex-wrap gap-3">
-    <a href="{{ url_for('lessons.list_lessons') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-semibold hover:bg-navy-700">Next lesson</a>
-    <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Retake quiz</a>
+  <div class="mt-10 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.list_lessons') }}" class="btn {{ 'btn-sun' if passed else 'btn-quiet' }}">Back to lessons</a>
+    <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="btn {{ 'btn-quiet' if passed else 'btn-sun' }}">Retake the quiz</a>
   </div>
 </section>
 {% endblock %}

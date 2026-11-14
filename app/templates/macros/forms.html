@@ -2,11 +2,11 @@
   {# Jinja macros can't declare **kwargs in their signature (unlike Python) —
      `kwargs` is already implicitly populated with any extra keyword args
      the caller passes, e.g. {{ f.field(form.description, rows="3") }}. #}
-  <div class="mb-4">
-    <label for="{{ f.id }}" class="block text-sm font-medium text-slate-700 mb-1">{{ f.label.text }}</label>
-    {{ f(class_="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-navy-400 focus:border-navy-400" ~ (" border-red-400" if f.errors else ""), **kwargs) }}
+  <div class="mb-5">
+    <label for="{{ f.id }}" class="mb-1.5 block text-sm font-medium text-kivu-800">{{ f.label.text }}</label>
+    {{ f(class_="field" ~ (" field-error" if f.errors else ""), **kwargs) }}
     {% if f.errors %}
-      <ul class="mt-1 text-sm text-red-600">
+      <ul class="mt-1.5 text-sm text-clay-600" role="alert">
         {% for error in f.errors %}
           <li>{{ error }}</li>
         {% endfor %}
@@ -16,8 +16,8 @@
 {% endmacro %}
 
 {% macro checkbox(f) %}
-  <div class="mb-4 flex items-center gap-2">
-    {{ f(class_="rounded border-slate-300 text-navy-700 focus:ring-navy-400") }}
-    <label for="{{ f.id }}" class="text-sm text-slate-700">{{ f.label.text }}</label>
+  <div class="mb-5 flex items-center gap-2.5">
+    {{ f(class_="h-5 w-5 rounded border-kivu-200 accent-kivu-700") }}
+    <label for="{{ f.id }}" class="text-sm text-kivu-800">{{ f.label.text }}</label>
   </div>
 {% endmacro %}

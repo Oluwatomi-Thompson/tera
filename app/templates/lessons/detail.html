@@ -1,29 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{ lesson.title }} — Tera{% endblock %}
 {% block content %}
-<section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
-  <a href="{{ url_for('lessons.list_lessons') }}" class="text-sm text-navy-700 underline">&larr; All lessons</a>
+<section class="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+  <a href="{{ url_for('lessons.list_lessons') }}" class="inline-flex items-center gap-1 text-sm font-medium text-kivu-700 hover:text-kivu-900">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.7 5.3a1 1 0 010 1.4L9.4 10l3.3 3.3a1 1 0 11-1.4 1.4l-4-4a1 1 0 010-1.4l4-4a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+    All lessons
+  </a>
 
   {% if not lesson.is_published %}
-    <div class="mt-4 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-2">
-      Draft — only visible to admins. Flip "Published" in the admin panel once this is fact-checked.
+    <div class="mt-5 rounded-lg border border-sun-300 bg-sun-100 px-4 py-3 text-sm text-kivu-900">
+      This lesson is a draft and only admins can see it. Publish it from the admin panel once it's fact-checked.
     </div>
   {% endif %}
 
-  <h1 class="mt-4 text-3xl font-bold">{{ lesson.title }}</h1>
+  <h1 class="mt-6 text-4xl font-extrabold leading-[1.1]">{{ lesson.title }}</h1>
 
-  <article class="prose prose-slate max-w-none mt-6">
+  <article class="prose prose-tera mt-8">
     {{ lesson.content_body | render_markdown | safe }}
   </article>
 
-  <div class="mt-10 pt-6 border-t border-slate-200">
+  <div class="mt-12 border-t border-kivu-100 pt-8">
     {% if progress and progress.completed %}
-      <p class="text-green-700 font-medium">You scored {{ progress.quiz_score_pct }}% on this lesson's quiz.</p>
-      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="mt-3 inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Retake quiz</a>
+      <p class="font-display text-lg font-semibold text-hill-700">You scored {{ progress.quiz_score_pct }}% on this lesson's quiz.</p>
+      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="btn btn-quiet mt-4">Retake the quiz</a>
     {% elif lesson.questions %}
-      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="inline-block rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">Take the quiz</a>
+      <p class="mb-4 text-slate2">Check what stuck with {{ lesson.questions|length }} quick question{{ 's' if lesson.questions|length != 1 else '' }}.</p>
+      <a href="{{ url_for('lessons.quiz', slug=lesson.slug) }}" class="btn btn-sun">Take the quiz</a>
     {% else %}
-      <p class="text-sm text-slate-500">No quiz for this lesson yet.</p>
+      <p class="text-slate2">This lesson doesn't have a quiz yet.</p>
     {% endif %}
   </div>
 </section>

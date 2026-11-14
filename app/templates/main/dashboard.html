@@ -1,47 +1,53 @@
 {% extends "base.html" %}
+{% import "macros/lessons.html" as m %}
 {% block title %}Your dashboard — Tera{% endblock %}
 {% block content %}
-<section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-  <h1 class="text-2xl font-bold">Welcome back, {{ current_user.email.split('@')[0] }}</h1>
+{# the first lesson not yet completed is the "next up" one #}
+{% set ns = namespace(next=none) %}
+{% for lesson in lessons %}
+  {% set p = progress_by_lesson.get(lesson.id) %}
+  {% if ns.next is none and not (p and p.completed) %}{% set ns.next = lesson %}{% endif %}
+{% endfor %}
 
-  <div class="mt-6 rounded-lg border border-slate-200 p-5 bg-white">
-    <div class="flex items-center justify-between mb-2">
-      <p class="font-medium text-slate-700">Overall progress</p>
-      <p class="text-sm text-slate-500">{{ progress.completed }} / {{ progress.total }} lessons</p>
+<section class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+  <h1 class="text-3xl font-extrabold">Welcome back, {{ current_user.email.split('@')[0] }}</h1>
+
+  <div class="panel mt-8 p-6">
+    <div class="flex items-end justify-between gap-4">
+      <p class="font-display">
+        <span class="text-5xl font-extrabold leading-none">{{ progress.completed }}</span>
+        <span class="ml-1 text-xl font-semibold text-slate2">of {{ progress.total }} lessons complete</span>
+      </p>
+      <p class="font-display text-2xl font-bold text-hill-700">{{ progress.percent }}%</p>
     </div>
-    <div class="w-full bg-slate-100 rounded-full h-3">
-      <div class="bg-navy-700 h-3 rounded-full transition-all" style="width: {{ progress.percent }}%"></div>
+    <div class="mt-5 h-3 w-full overflow-hidden rounded-full bg-kivu-50" role="progressbar" aria-valuenow="{{ progress.percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Overall progress">
+      <div class="fill-in h-3 rounded-full bg-hill-600" style="width: {{ progress.percent }}%"></div>
     </div>
-    <p class="mt-2 text-sm text-slate-500">{{ progress.percent }}% complete</p>
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      {% if ns.next %}
+        <a href="{{ url_for('lessons.detail', slug=ns.next.slug) }}" class="btn btn-sun">Continue: {{ ns.next.title }}</a>
+      {% elif lessons %}
+        <p class="font-medium text-hill-700">You've finished every lesson. Time to pick a place to start.</p>
+        <a href="{{ url_for('institutions.directory') }}" class="btn btn-sun">Where to invest</a>
+      {% endif %}
+    </div>
   </div>
 
-  <h2 class="mt-10 text-lg font-semibold">Lessons</h2>
-  <div class="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+  <h2 class="mt-12 text-2xl font-bold">Your lessons</h2>
+  <ol class="mt-5">
     {% for lesson in lessons %}
-      {% set p = progress_by_lesson.get(lesson.id) %}
-      <a href="{{ url_for('lessons.detail', slug=lesson.slug) }}" class="flex items-center justify-between px-5 py-4 hover:bg-slate-50">
-        <div>
-          <p class="font-medium">{{ lesson.title }}</p>
-          {% if p and p.completed %}
-            <p class="text-sm text-green-700">Completed — scored {{ p.quiz_score_pct }}%</p>
-          {% else %}
-            <p class="text-sm text-slate-500">Not started yet</p>
-          {% endif %}
-        </div>
-        {% if p and p.completed %}
-          <span class="text-green-600 text-xl" aria-hidden="true">✓</span>
-        {% else %}
-          <span class="text-slate-300 text-xl" aria-hidden="true">→</span>
-        {% endif %}
-      </a>
+      {{ m.lesson_row(lesson, progress_by_lesson.get(lesson.id), loop.index, ns.next and lesson.id == ns.next.id) }}
     {% else %}
-      <p class="px-5 py-6 text-sm text-slate-500">No lessons published yet — check back soon.</p>
+      <li class="text-slate2">No lessons are published yet. Check back soon.</li>
     {% endfor %}
-  </div>
+  </ol>
 
-  <div class="mt-8 flex flex-wrap gap-3">
-    <a href="{{ url_for('lessons.calculator') }}" class="rounded-md bg-navy-900 text-white px-4 py-2 text-sm font-medium hover:bg-navy-700">Try the calculator</a>
-    <a href="{{ url_for('institutions.directory') }}" class="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50">Where to actually invest</a>
+  <div class="mt-10 flex flex-wrap gap-3">
+    <a href="{{ url_for('lessons.calculator') }}" class="btn btn-quiet">Try the calculator</a>
+    {% if ns.next %}
+      <a href="{{ url_for('institutions.directory') }}" class="btn btn-quiet">Where to invest</a>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

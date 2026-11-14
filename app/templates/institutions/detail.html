@@ -1,23 +1,25 @@
 {% extends "base.html" %}
 {% block title %}{{ institution.name }} — Tera{% endblock %}
 {% block content %}
-<section class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-  <a href="{{ url_for('institutions.directory') }}" class="text-sm text-navy-700 underline">&larr; All institutions</a>
-
-  <h1 class="mt-4 text-2xl font-bold">{{ institution.name }}</h1>
-  <span class="inline-block mt-2 text-xs font-medium uppercase tracking-wide text-navy-700 bg-navy-50 rounded-full px-2 py-1">
-    {{ institution.category|replace('_', ' ')|title }}
-  </span>
-
-  {% if institution.description %}
-    <p class="mt-4 text-slate-700 leading-relaxed">{{ institution.description }}</p>
-  {% endif %}
-
-  <a href="{{ institution.url }}" target="_blank" rel="noopener noreferrer"
-     class="mt-6 inline-flex items-center gap-2 rounded-md bg-navy-900 text-white px-5 py-2.5 text-sm font-semibold hover:bg-navy-700">
-    Visit {{ institution.name }} &rarr;
+<section class="mx-auto max-w-2xl px-4 py-12 sm:px-6">
+  <a href="{{ url_for('institutions.directory') }}" class="inline-flex items-center gap-1 text-sm font-medium text-kivu-700 hover:text-kivu-900">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.7 5.3a1 1 0 010 1.4L9.4 10l3.3 3.3a1 1 0 11-1.4 1.4l-4-4a1 1 0 010-1.4l4-4a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+    All institutions
   </a>
 
-  <p class="mt-4 text-xs text-slate-400">Tera is not affiliated with {{ institution.name }}. Always confirm licensing and current terms directly on their site before sending any money.</p>
+  <h1 class="mt-6 text-4xl font-extrabold leading-[1.1]">{{ institution.name }}</h1>
+  <span class="badge mt-3 bg-kivu-50 text-kivu-700">{{ institution.category|replace('_', ' ')|title }}</span>
+
+  {% if institution.description %}
+    <p class="mt-6 font-serif text-[1.1875rem] leading-[1.72] text-[#173847]">{{ institution.description }}</p>
+  {% endif %}
+
+  <a href="{{ institution.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sun mt-8">
+    Visit {{ institution.name }}
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M11 3a1 1 0 100 2h2.6l-6.3 6.3a1 1 0 101.4 1.4L15 6.4V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z"/><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z"/></svg>
+    <span class="sr-only">(opens in a new tab)</span>
+  </a>
+
+  <p class="mt-6 max-w-lg text-sm leading-relaxed text-slate2">Tera is not affiliated with {{ institution.name }}. Always confirm licensing and current terms on their own site before sending any money.</p>
 </section>
 {% endblock %}

@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Your profile — Tera{% endblock %}
 {% block content %}
-<section class="max-w-md mx-auto px-4 sm:px-6 py-14">
-  <h1 class="text-2xl font-bold">Your profile</h1>
+<section class="mx-auto max-w-md px-4 py-14 sm:px-6">
+  <h1 class="text-3xl font-extrabold">Your profile</h1>
 
-  <dl class="mt-6 divide-y divide-slate-200 border border-slate-200 rounded-lg bg-white">
-    <div class="flex justify-between px-5 py-3">
-      <dt class="text-slate-500 text-sm">Email</dt>
-      <dd class="text-sm font-medium">{{ current_user.email }}</dd>
+  <dl class="rows mt-8">
+    <div class="flex justify-between gap-4 px-5 py-3.5">
+      <dt class="text-slate2">Email</dt>
+      <dd class="break-all text-right font-medium">{{ current_user.email }}</dd>
     </div>
-    <div class="flex justify-between px-5 py-3">
-      <dt class="text-slate-500 text-sm">Role</dt>
-      <dd class="text-sm font-medium capitalize">{{ current_user.role.value }}</dd>
+    <div class="flex justify-between gap-4 px-5 py-3.5">
+      <dt class="text-slate2">Role</dt>
+      <dd class="font-medium capitalize">{{ current_user.role.value }}</dd>
     </div>
-    <div class="flex justify-between px-5 py-3">
-      <dt class="text-slate-500 text-sm">Member since</dt>
-      <dd class="text-sm font-medium">{{ current_user.created_at.strftime('%B %Y') if current_user.created_at else '—' }}</dd>
+    <div class="flex justify-between gap-4 px-5 py-3.5">
+      <dt class="text-slate2">Member since</dt>
+      <dd class="font-medium">{{ current_user.created_at.strftime('%B %Y') if current_user.created_at else '—' }}</dd>
     </div>
-    <div class="flex justify-between px-5 py-3">
-      <dt class="text-slate-500 text-sm">Lessons completed</dt>
-      <dd class="text-sm font-medium">{{ progress.completed }} / {{ progress.total }}</dd>
+    <div class="flex justify-between gap-4 px-5 py-3.5">
+      <dt class="text-slate2">Lessons completed</dt>
+      <dd class="font-medium">{{ progress.completed }} of {{ progress.total }}</dd>
     </div>
   </dl>
 
-  <a href="{{ url_for('main.dashboard') }}" class="mt-6 inline-block text-sm text-navy-700 font-medium underline">Back to dashboard</a>
+  <a href="{{ url_for('main.dashboard') }}" class="btn btn-quiet mt-8">Back to dashboard</a>
 </section>
 {% endblock %}

@@ -2,19 +2,20 @@
 {% import "macros/forms.html" as f %}
 {% block title %}{{ 'Edit' if institution else 'Add' }} institution — Tera{% endblock %}
 {% block content %}
-<section class="max-w-md mx-auto px-4 sm:px-6 py-10">
-  <a href="{{ url_for('admin.dashboard') }}" class="text-sm text-navy-700 underline">&larr; Admin</a>
-  <h1 class="mt-4 text-2xl font-bold">{{ 'Edit' if institution else 'Add' }} institution</h1>
+<section class="mx-auto max-w-md px-4 py-12 sm:px-6">
+  <a href="{{ url_for('admin.dashboard') }}" class="inline-flex items-center gap-1 text-sm font-medium text-kivu-700 hover:text-kivu-900">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.7 5.3a1 1 0 010 1.4L9.4 10l3.3 3.3a1 1 0 11-1.4 1.4l-4-4a1 1 0 010-1.4l4-4a1 1 0 011.4 0z" clip-rule="evenodd"/></svg>
+    Admin
+  </a>
+  <h1 class="mt-6 text-3xl font-extrabold">{{ 'Edit' if institution else 'Add' }} institution</h1>
 
-  <form method="post" class="mt-6">
+  <form method="post" class="panel mt-8 p-6">
     {{ form.hidden_tag() }}
     {{ f.field(form.name) }}
     {{ f.field(form.description, rows="3") }}
     {{ f.field(form.url, placeholder="https://") }}
     {{ f.field(form.category) }}
-    <button type="submit" class="w-full rounded-md bg-navy-900 text-white font-semibold py-2.5 hover:bg-navy-700">
-      {{ 'Save changes' if institution else 'Add institution' }}
-    </button>
+    <button type="submit" class="btn btn-kivu w-full">{{ 'Save changes' if institution else 'Add institution' }}</button>
   </form>
 </section>
 {% endblock %}
