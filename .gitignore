@@ -5,7 +5,7 @@ venv/
 *.db
 .env
 node_modules/
-app/static/css/output.css
+# app/static/css/output.css
 instance/
 .pytest_cache/
 *.egg-info/
