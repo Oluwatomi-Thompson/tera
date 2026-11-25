@@ -2,8 +2,7 @@
 
 Tera is a localized investment-literacy platform for Rwandan youth. It provides learning content and tools intended to help users build practical financial knowledge.
 
-> **Live application:** [Add your deployed application URL here](https://your-live-app-url.example)  
-> Replace the example URL above with the real public URL before submitting.
+> **Live application:** [https://tera-ouwq.onrender.com/](https://tera-ouwq.onrender.com/)  
 
 ## Project documents
 
@@ -140,29 +139,3 @@ Run the automated test suite from the repository root with the virtual environme
 ```bash
 pytest
 ```
-
-## Deployment
-
-The live product URL should be public and accessible to graders:
-
-**Application URL:** [Add the deployed URL here](https://your-live-app-url.example)
-
-This repository includes a Render deployment blueprint in `render.yaml`. A deployment needs a PostgreSQL database and the following environment variables configured by the host:
-
-- `SECRET_KEY` — a secure, unique secret generated for the deployment
-- `DATABASE_URL` — the PostgreSQL connection string
-- `ADMIN_EMAIL` and `ADMIN_PASSWORD` — optional values used by the startup script to create or update the administrator account
-
-Never commit production credentials, secret keys, or a populated `.env` file. After deploying, open the public URL and verify the main pages and core user flows before sharing it for assessment.
-
-## Summative submission checklist
-
-- [ ] Replace the live application URL placeholders above with the real deployed URL.
-- [ ] Record a 5–10 minute video covering the system description, problem, why it matters, proposed solution, and a prototype demo.
-- [ ] Add the video link to the Google Doc.
-- [ ] Add this public GitHub repository link to the Google Doc: <https://github.com/Oluwatomi-Thompson/tera>
-- [ ] Add the SRS link to the Google Doc: <https://github.com/Oluwatomi-Thompson/tera/blob/main/docs/srs/Oluwatomi_Thompson_Assignment2_10262026.pdf>
-- [ ] Check that the Google Doc and video permissions allow the grader to open them.
-- [ ] Submit the Google Doc link on Canvas by 25 November 2026.
-
-Use the required Google Doc title format: `personNames_[Summative]_[MMDDYYYY]`.
